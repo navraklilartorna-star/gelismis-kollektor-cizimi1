@@ -1,4 +1,4 @@
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { PIPE_SIZES, defaultAuxiliaryOutlet, inchFlat, type AuxiliaryOutlets, type Project } from "@/lib/collector";
 
 const control = "h-11 w-full min-w-0 rounded-md border border-input bg-card px-2 font-mono text-base";
@@ -11,7 +11,7 @@ export function AuxiliaryOutletEditor({ project, onChange }: { project: Project;
       const value = values[kind];
       const update = (patch: Partial<NonNullable<typeof value>>) => onChange({ ...values, [kind]: { ...(value ?? defaultAuxiliaryOutlet(kind)), ...patch } });
       return <div key={kind} className="space-y-3">
-        <label className="flex items-center justify-between gap-3 font-semibold">{title}<Switch aria-label={title} checked={Boolean(value)} onCheckedChange={checked => { const next = { ...values }; if (checked) next[kind] = defaultAuxiliaryOutlet(kind); else delete next[kind]; onChange(next); }} /></label>
+        <div className="flex items-center justify-between gap-3 font-semibold"><span>{title}</span><Button type="button" role="switch" aria-label={title} aria-checked={Boolean(value)} variant="ghost" className={`relative h-6 w-11 shrink-0 rounded-full p-0 focus-visible:ring-2 ${value ? "bg-primary hover:bg-primary" : "bg-input hover:bg-input"}`} onClick={() => { const next = { ...values }; if (!value) next[kind] = defaultAuxiliaryOutlet(kind); else delete next[kind]; onChange(next); }}><span className={`pointer-events-none absolute top-1 h-4 w-4 rounded-full bg-background transition-transform motion-reduce:transition-none ${value ? "left-1 translate-x-5" : "left-1 translate-x-0"}`} /></Button></div>
         {value && <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
           <label className="min-w-0 text-sm">Konum<select aria-label={`${title} konum`} className={control} value={value.position} onChange={e => update({ position: e.target.value as "left" | "right" })}><option value="left">{kind === "drain" ? "Alt" : "Üst"} / Sol</option><option value="right">{kind === "drain" ? "Alt" : "Üst"} / Sağ</option></select></label>
           <label className="min-w-0 text-sm">Çap (inç)<select aria-label={`${title} çap`} disabled={kind === "gauge"} className={control} value={value.size} onChange={e => update({ size: e.target.value })}>{(kind === "gauge" ? ["1/2"] : PIPE_SIZES).map(size => <option key={size} value={size}>{inchFlat(size)}″</option>)}</select></label>
