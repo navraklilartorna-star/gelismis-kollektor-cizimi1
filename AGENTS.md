@@ -24,4 +24,5 @@
 - Advanced projects use separate owner-scoped customer and project entities; a SECURITY INVOKER database RPC atomically saves the project and exact member set to prevent cross-project mixing and partial saves.
 - Keep projectTitle distinct from the hidden legacy name and propagate project identity across ordered local drafts.
 - Advanced branch axes accumulate independently on each side, with the first axis at the start allowance; branch numbering follows original layout order, top before bottom.
-- Render advanced diagrams and paginated branch schedules through shared primitives for identical screen and PDF output, while retaining legacy drawing behavior until advanced settings are edited.
+- Render manufacturing sheets with the diagram above the first schedule rows and paginate overflow using shared primitives; preserve legacy axis geometry unless branch settings are edited.
+- Store optional fittings as a separate collector JSON field and use the shared production schedule for their placement and table values, so they never change numbered branch membership or axes.
