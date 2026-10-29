@@ -19,16 +19,20 @@ export type Database = {
           batch_id: string | null
           batch_position: number
           batch_saved_at: number | null
+          branches: Json | null
           customer_name: string
           end_length: number
           id: string
           layout: string
+          main_end_type: string | null
           main_size: string
+          manufacturing_project_id: string | null
           name: string
           notes: string
           out_size: string
           outlet_count: number
           production_date: string
+          project_title: string
           quantity: number
           spacing: number
           start_length: number
@@ -40,16 +44,20 @@ export type Database = {
           batch_id?: string | null
           batch_position?: number
           batch_saved_at?: number | null
+          branches?: Json | null
           customer_name?: string
           end_length?: number
           id: string
           layout?: string
+          main_end_type?: string | null
           main_size?: string
+          manufacturing_project_id?: string | null
           name?: string
           notes?: string
           out_size?: string
           outlet_count?: number
           production_date?: string
+          project_title?: string
           quantity?: number
           spacing?: number
           start_length?: number
@@ -61,16 +69,20 @@ export type Database = {
           batch_id?: string | null
           batch_position?: number
           batch_saved_at?: number | null
+          branches?: Json | null
           customer_name?: string
           end_length?: number
           id?: string
           layout?: string
+          main_end_type?: string | null
           main_size?: string
+          manufacturing_project_id?: string | null
           name?: string
           notes?: string
           out_size?: string
           outlet_count?: number
           production_date?: string
+          project_title?: string
           quantity?: number
           spacing?: number
           start_length?: number
@@ -78,14 +90,113 @@ export type Database = {
           updated_at?: number
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "collector_manufacturing_owner_fk"
+            columns: ["user_id", "manufacturing_project_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturing_projects"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      manufacturing_customers: {
+        Row: {
+          id: string
+          name: string
+          name_key: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          name?: string
+          name_key: string
+          user_id?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_key?: string
+          user_id?: string
+        }
         Relationships: []
+      }
+      manufacturing_projects: {
+        Row: {
+          customer_id: string
+          id: string
+          title: string
+          updated_at: number
+          user_id: string
+        }
+        Insert: {
+          customer_id: string
+          id?: string
+          title?: string
+          updated_at?: number
+          user_id?: string
+        }
+        Update: {
+          customer_id?: string
+          id?: string
+          title?: string
+          updated_at?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manufacturing_projects_user_id_customer_id_fkey"
+            columns: ["user_id", "customer_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturing_customers"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      save_manufacturing_project: {
+        Args: {
+          _customer_name: string
+          _project_id: string
+          _rows: Json
+          _title: string
+        }
+        Returns: {
+          batch_id: string | null
+          batch_position: number
+          batch_saved_at: number | null
+          branches: Json | null
+          customer_name: string
+          end_length: number
+          id: string
+          layout: string
+          main_end_type: string | null
+          main_size: string
+          manufacturing_project_id: string | null
+          name: string
+          notes: string
+          out_size: string
+          outlet_count: number
+          production_date: string
+          project_title: string
+          quantity: number
+          spacing: number
+          start_length: number
+          thread: string
+          updated_at: number
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "collector_projects"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

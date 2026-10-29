@@ -4,14 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
 import { AccountDialog } from "@/components/AccountDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { listCloudProjects, saveCloudProject, saveCloudBatch, updateCloudBatch, deleteCloudProject } from "@/lib/cloud-projects";
+import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject } from "@/lib/cloud-projects";
+import { BranchEditor } from "@/components/BranchEditor";
+import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileText, Download, Folder, X } from "lucide-react";
 import {
   PIPE_SIZES, LAYOUT_LABELS, THREAD_LABELS, THREAD_HINTS, computeLayout, fmt, inchFlat, newProject, normalizeProject, validate,
-  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, type Layout, type Project, type Thread,
+  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, MAIN_END_LABELS, type MainEndType, type Layout, type Project, type Thread,
 } from "@/lib/collector";
 
 /** Default start length per layout: tek sıra 8 cm, karşılıklı 10 cm. */
@@ -21,10 +23,10 @@ const selectAll = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Kollektör Çizim – Navraklılar Torna" },
-      { name: "description", content: "Ölçülü su kollektörü teknik çizimi hazırlayın ve PDF olarak paylaşın." },
-      { property: "og:title", content: "Kollektör Çizim – Navraklılar Torna" },
-      { property: "og:description", content: "Ölçülü su kollektörü teknik çizimi hazırlayın ve PDF olarak paylaşın." },
+      { title: "Gelişmiş Kollektör İmalat ve Çizim – Navraklılar Torna" },
+      { name: "description", content: "Ayrı müşteri ve proje kayıtları, özel branşman ölçüleri ve teknik imalat PDF paftaları." },
+      { property: "og:title", content: "Gelişmiş Kollektör İmalat ve Çizim – Navraklılar Torna" },
+      { property: "og:description", content: "Müşteri projelerinizi ve her kollektörün özel branşmanlarını güvenle kaydedin." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -112,7 +114,7 @@ function Index() {
   candidates.set(parsed.id, parsed);
   const batch = [...new Set([...sessionIds, parsed.id])].flatMap((id) => {
     const item = candidates.get(id);
-    return item ? [{ ...item, customerName: p.customerName }] : [];
+    return item ? [{ ...item, customerName: p.customerName, projectTitle: p.projectTitle, projectId: p.projectId }] : [];
   });
   const customerGroups = useMemo(() => groupCustomerProjects(list), [list]);
 
@@ -123,11 +125,11 @@ function Index() {
     setDrafts((old) => ({ ...old, [p.id]: { project: parsed, nums: { ...nums } } }));
     setSessionIds((ids) => [...new Set([...ids, p.id, x.id])]);
     const draft = drafts[x.id];
-    openProject({ ...x, customerName: p.customerName }, draft ? { ...draft, project: { ...draft.project, customerName: p.customerName } } : undefined);
+    openProject({ ...x, customerName: p.customerName, projectTitle: p.projectTitle, projectId: p.projectId }, draft ? { ...draft, project: { ...draft.project, customerName: p.customerName, projectTitle: p.projectTitle, projectId: p.projectId } } : undefined);
   };
   const openBatch = (items: Project[], selected = items[0]) => {
     if (!selected || saveLock.current) return;
-    setActiveBatch({ id: items[0]?.batchId ?? crypto.randomUUID(), ids: items.map((x) => x.id) });
+    setActiveBatch({ id: items[0]?.projectId ?? items[0]?.batchId ?? crypto.randomUUID(), ids: items.map((x) => x.id) });
     setDrafts({}); setSessionIds(items.map((x) => x.id)); openProject(selected);
   };
   const startNew = () => { if (saveLock.current) return; setActiveBatch(null); setDrafts({}); setSessionIds([]); setPdf(null); openProject(newProject()); };
@@ -147,12 +149,13 @@ function Index() {
     try {
       const keep = new Set(snapshot.map((x) => x.id));
       const removed = activeBatch ? activeBatch.ids.filter((id) => !keep.has(id)) : [];
-      const saved = activeBatch ? await updateCloudBatch(snapshot, userId, removed) : await saveCloudBatch(snapshot, userId);
+      const saved = await saveManufacturingProject(snapshot, userId);
       const savedIds = new Set(saved.map((x) => x.id));
       queryClient.setQueryData<Project[]>(["collectors", userId], (old = []) => [...old.filter((x) => !savedIds.has(x.id) && !removed.includes(x.id)), ...saved]);
       void queryClient.invalidateQueries({ queryKey: ["collectors", userId] });
       // Further saves of this editor session overwrite the same group instead of duplicating it.
-      setActiveBatch({ id: saved[0]?.batchId ?? snapshot[0]!.batchId!, ids: saved.map((x) => x.id) });
+      const savedBatchId = saved[0]?.projectId ?? saved[0]?.batchId;
+      if (savedBatchId) setActiveBatch({ id: savedBatchId, ids: saved.map((x) => x.id) });
       setDrafts({}); setSessionIds(saved.map((x) => x.id));
       const current = saved[position] ?? saved[0];
       if (current) { setP(current); }
@@ -198,7 +201,7 @@ function Index() {
     if (saveLock.current) return;
     if (!ok) return flash("Önce hataları düzeltin");
     setDrafts((old) => ({ ...old, [p.id]: { project: parsed, nums: { ...nums } } }));
-    const next = { ...newProject(), customerName: customerLabel(p.customerName), date: p.date };
+    const next = { ...newProject(), customerName: customerLabel(p.customerName), projectTitle: p.projectTitle, projectId: p.projectId, date: p.date };
     setSessionIds((ids) => [...new Set([...ids, p.id, next.id])]);
     openProject(next);
   };
@@ -231,7 +234,7 @@ function Index() {
       <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-primary px-5 py-4 text-primary-foreground">
         <div>
           <div className="font-mono text-xs tracking-[0.2em] text-accent">NAVRAKLILAR TORNA</div>
-          <h1 className="text-2xl font-bold">Kollektör Çizim</h1>
+          <h1 className="max-w-xl text-xl font-bold sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">Projeler</Button>
@@ -243,10 +246,13 @@ function Index() {
       <main className="mx-auto max-w-3xl space-y-5 p-4">
         {user && <p className="break-all text-sm text-muted-foreground">Bulut hesabı: {user.email}</p>}
         {legacy.length > 0 && <div className="space-y-2 border-y border-border py-3"><p>Bu cihazda {legacy.length} eski kayıt var.</p><Button variant="outline" disabled={saving} onClick={importLegacy}>Eski kayıtları buluta aktar</Button></div>}
-        <fieldset disabled={saving} className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-5">
+        <fieldset disabled={saving} className="min-w-0 space-y-4 border-b border-border py-5">
           <Field label="Müşteri adı (isteğe bağlı)">
             <input className={inputCls} list="customer-names" maxLength={45} placeholder="Örn. Ahmet Bey" value={p.customerName} onChange={(e) => setP({ ...p, customerName: e.target.value })} />
             <datalist id="customer-names">{Array.from(new Set(list.map((x) => x.customerName).filter(Boolean))).map((name) => <option key={name} value={name} />)}</datalist>
+          </Field>
+          <Field label="Proje adı">
+            <input className={inputCls} maxLength={45} placeholder="Örn. Kazan dairesi — 1. kat" value={p.projectTitle ?? ""} onChange={e => setP({ ...p, projectTitle: e.target.value })} />
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Tarih">
@@ -275,6 +281,8 @@ function Index() {
           </div>
           <Group label="Çıkış düzeni"><Seg<Layout> value={p.layout} options={LAYOUT_LABELS} onChange={(layout) => { setP({ ...p, layout }); setNums((old) => ({ ...old, start: LAYOUT_START[layout] })); }} /></Group>
           <Group label="Dişli bağlantı tipi"><Seg<Thread> value={p.thread} options={THREAD_LABELS} onChange={(thread) => setP({ ...p, thread })} /></Group>
+          <Field label="Ana boru uçları"><select className={`${inputCls} font-sans text-base`} value={p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed")} onChange={e => setP({ ...p, mainEndType: e.target.value as MainEndType })}>{Object.entries(MAIN_END_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+          <BranchEditor project={parsed} onChange={branches => setP({ ...p, branches })} />
           <Field label="Üretim notu">
             <textarea className={`${inputCls} h-28 resize-y font-sans text-base`} maxLength={180} placeholder="Örn. Çıkışlar kaynak sonrası kontrol edilecek." value={p.notes} onChange={(e) => setP({ ...p, notes: e.target.value })} />
           </Field>
@@ -285,7 +293,7 @@ function Index() {
         </fieldset>
 
         <section className="space-y-3 border-y border-border py-4">
-          <h2 className="break-words text-lg font-bold">{customerLabel(p.customerName)} — Kollektörler ({batch.length})</h2>
+          <h2 className="break-words text-lg font-bold">{customerLabel(p.customerName)} — {p.projectTitle || "Kollektör projesi"} — Kollektörler ({batch.length})</h2>
           <div className="space-y-2">{batch.map((x, i) => <div key={x.id} className="flex items-center gap-2">
             <Button disabled={saving} variant={x.id === p.id ? "secondary" : "outline"} className="h-auto min-w-0 flex-1 justify-start whitespace-normal text-left" onClick={() => switchCollector(x)}>
               <span className="min-w-0 break-words">Kollektör {i + 1} · {x.count} çıkış · {x.quantity} adet · {fmt(computeLayout(x).total)} cm<span>{x.id === p.id ? " • Açık" : ""}</span></span>
@@ -293,7 +301,7 @@ function Index() {
             {x.id === p.id && <Button variant="outline" size="icon" disabled={saving || busy} className="h-11 w-11 shrink-0 border-destructive text-destructive" aria-label={`Kollektör ${i + 1} iptal et`} title="Kollektörü iptal et" onClick={cancelDesign}><X /></Button>}
           </div>)}</div>
           <Button variant="outline" className="h-12 w-full" disabled={saving} onClick={addCollector}>+ Kollektör Ekle</Button>
-          <Button className="h-12 w-full" disabled={!ok || busy || Boolean(userId && (projectsQuery.isPending || projectsQuery.isError))} onClick={() => createPdf(true)}><FileText />Tümünü PDF Oluştur ({batch.length} sayfa)</Button>
+          <Button className="h-12 w-full" disabled={!ok || busy || Boolean(userId && (projectsQuery.isPending || projectsQuery.isError))} onClick={() => createPdf(true)}><FileText />Tümünü PDF Oluştur ({batch.reduce((sum,x) => sum + buildDrawingPages(x).length, 0)} sayfa)</Button>
         </section>
 
         <div className="flex items-center justify-between rounded-2xl bg-primary px-6 py-5 text-primary-foreground">
@@ -301,7 +309,7 @@ function Index() {
           <span className="font-mono text-3xl font-bold text-accent">{total !== null ? `${fmt(total)} cm` : "—"}</span>
         </div>
 
-        <section className="overflow-x-auto rounded-2xl border border-border bg-card">
+        <section className="overflow-x-auto border border-border bg-card">
           <div className="min-w-[640px]">{ok && <Drawing project={parsed} />}</div>
         </section>
       </main>
@@ -345,7 +353,7 @@ function Index() {
                 <AccordionContent className="space-y-2">
                   {savedBatches(group.projects).map((record, recordIndex) => <div key={record.id} className="space-y-1 border-l-2 border-border pl-2">
                     <Button disabled={saving} variant="outline" className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => openBatch(record.projects)}>
-                      Kayıt {recordIndex + 1} · {record.projects.length} Kollektör · {new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", dateStyle: "short", timeStyle: "short" }).format(new Date(record.savedAt))}
+                      {record.projects[0]?.projectTitle || `Kayıt ${recordIndex + 1}`} · {record.projects.length} Kollektör · {new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", dateStyle: "short", timeStyle: "short" }).format(new Date(record.savedAt))}
                     </Button>
                     {record.projects.map((x, i) => <div key={x.id} className="flex items-center gap-2">
                       <Button disabled={saving} variant="ghost" className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left" onClick={() => openBatch(record.projects, x)}>

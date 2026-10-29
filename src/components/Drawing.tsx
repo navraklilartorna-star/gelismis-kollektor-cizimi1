@@ -1,10 +1,10 @@
-import { buildDrawing, partWidth, textsWidth, W, H } from "@/lib/drawing";
+import { buildDrawingPages, partWidth, textsWidth, W, H } from "@/lib/drawing";
 import type { Project } from "@/lib/collector";
 
 export function Drawing({ project }: { project: Project }) {
-  const prims = buildDrawing(project);
+  const pages = buildDrawingPages(project);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full bg-card" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+    <div>{pages.map((prims, page) => <svg key={page} aria-label={page === 0 ? "Kollektör teknik çizimi" : `Branşman imalat listesi ${page}`} viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full bg-card" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       {prims.map((p, i) => {
         if (p.t === "line") return <line key={i} x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} stroke={p.c} strokeWidth={p.w} strokeDasharray={p.dash?.join(" ")} />;
         if (p.t === "rect") return <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h} fill={p.fill ?? "none"} stroke={p.stroke ?? "none"} strokeWidth={p.sw ?? 0} />;
@@ -37,6 +37,6 @@ export function Drawing({ project }: { project: Project }) {
           </text>
         );
       })}
-    </svg>
+    </svg>)}</div>
   );
 }

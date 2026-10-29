@@ -8,6 +8,20 @@
       "when": 1793246983804,
       "tag": "0000_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793266609510,
+      "tag": "0001_advanced_customer_projects_and_branches",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793266914669,
+      "tag": "0002_fix_atomic_project_save_alias",
+      "breakpoints": true
     }
   ]
 }
