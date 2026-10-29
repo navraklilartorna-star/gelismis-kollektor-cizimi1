@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import { buildDrawing, partWidth, textsWidth, W, H } from "./drawing";
+import { buildDrawingPages, partWidth, textsWidth, W, H } from "./drawing";
 import type { Project } from "./collector";
 
 let fontCache: Promise<[ArrayBuffer, ArrayBuffer]> | null = null;
@@ -29,8 +29,9 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
   const ty = (y: number) => PH - (oy + y * k);
 
   for (const p of projects) {
+  for (const primitives of buildDrawingPages(p)) {
   const page = doc.addPage([PW, PH]);
-  for (const pr of buildDrawing(p)) {
+  for (const pr of primitives) {
     if (pr.t === "line") {
       page.drawLine({ start: { x: tx(pr.x1), y: ty(pr.y1) }, end: { x: tx(pr.x2), y: ty(pr.y2) }, thickness: pr.w * k, color: hex(pr.c), ...(pr.dash ? { dashArray: pr.dash.map((d) => d * k) } : {}) });
     } else if (pr.t === "rect") {
@@ -63,6 +64,7 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
       const x = pr.anchor === "middle" ? tx(pr.x) - w / 2 : pr.anchor === "end" ? tx(pr.x) - w : tx(pr.x);
       page.drawText(pr.text, { x, y: ty(pr.y), size, font: f, color: hex(pr.c) });
     }
+  }
   }
   }
   const first = projects[0];
