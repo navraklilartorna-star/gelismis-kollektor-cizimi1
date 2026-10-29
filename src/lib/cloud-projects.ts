@@ -10,7 +10,8 @@ export function projectRow(project: Project, userId: string): Row {
     notes: p.notes, main_size: p.mainSize, out_size: p.outSize, outlet_count: p.count,
     spacing: p.spacing, start_length: p.start, end_length: p.end, layout: p.layout,
     thread: p.thread, production_date: p.date, quantity: p.quantity, updated_at: p.updatedAt,
-    batch_id: p.batchId ?? null, batch_saved_at: p.batchSavedAt ?? null, batch_position: p.batchPosition ?? 0 };
+    batch_id: p.batchId ?? null, batch_saved_at: p.batchSavedAt ?? null, batch_position: p.batchPosition ?? 0,
+    manufacturing_project_id: p.projectId ?? null, project_title: p.projectTitle ?? "", main_end_type: p.mainEndType ?? null, branches: p.branches ? JSON.parse(JSON.stringify(p.branches)) : null };
 }
 
 export function rowProject(row: Row): Project {
@@ -20,7 +21,21 @@ export function rowProject(row: Row): Project {
     spacing: row.spacing, start: row.start_length, end: row.end_length,
     layout: row.layout as Project["layout"], thread: row.thread as Project["thread"],
     date: row.production_date, quantity: row.quantity, updatedAt: row.updated_at,
-    ...(row.batch_id ? { batchId: row.batch_id, batchSavedAt: row.batch_saved_at ?? row.updated_at, batchPosition: row.batch_position } : {}) });
+    ...(row.batch_id ? { batchId: row.batch_id, batchSavedAt: row.batch_saved_at ?? row.updated_at, batchPosition: row.batch_position } : {}),
+    ...(row.manufacturing_project_id ? { projectId: row.manufacturing_project_id } : {}),
+    ...(row.project_title ? { projectTitle: row.project_title } : {}),
+    ...(row.main_end_type ? { mainEndType: row.main_end_type as Project["mainEndType"] } : {}),
+    ...(Array.isArray(row.branches) ? { branches: row.branches as unknown as Project["branches"] } : {}) });
+}
+
+/** Customer, project, members and removals commit together under the caller's RLS. */
+export async function saveManufacturingProject(projects: Project[], userId: string): Promise<Project[]> {
+  const first = projects[0];
+  if (!first?.batchId) throw new Error("Proje kimliği eksik.");
+  for (const p of projects) { const errors = validate(p); if (errors.length) throw new Error(errors[0]); }
+  const { data, error } = await supabase.rpc("save_manufacturing_project", { _project_id: first.projectId ?? first.batchId, _customer_name: first.customerName, _title: first.projectTitle ?? "Kollektör projesi", _rows: JSON.parse(JSON.stringify(projects.map(p => projectRow(p, userId)))) });
+  if (error || !data || data.length !== projects.length) throw new Error("Proje kaydedilemedi. Ölçüleriniz korunuyor; tekrar deneyin.");
+  return data.map(rowProject);
 }
 
 export async function listCloudProjects(userId: string): Promise<Project[]> {

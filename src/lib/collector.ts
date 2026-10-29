@@ -2,6 +2,12 @@ export const PIPE_SIZES = ["1/2", "3/4", "1", "1 1/4", "1 1/2", "2", "2 1/2", "3
 
 export type Layout = "tek" | "karsilikli" | "capraz";
 export type Thread = "acik" | "kapali" | "cift";
+export type MainEndType = "open-open" | "closed-closed" | "open-closed" | "closed-flanged" | "flanged-flanged";
+export const MAIN_END_LABELS: Record<MainEndType, string> = { "open-open": "İki Tarafı Açık", "closed-closed": "İki Tarafı Kapalı", "open-closed": "Bir Tarafı Açık Bir Tarafı Kapalı", "closed-flanged": "Bir Tarafı Kapalı Bir Tarafı Flanşlı", "flanged-flanged": "İki Tarafı Flanşlı" };
+export interface Branch { size: string; length: number; spacing: number; connection: "male" | "flanged" }
+export function branchSettings(p: Project): Branch[] {
+  return Array.from({ length: Math.min(60, Math.max(1, Math.floor(p.count) || 1)) }, (_, i) => p.branches?.[i] ?? { size: p.outSize, length: 10, spacing: p.spacing, connection: "male" });
+}
 
 export const LAYOUT_LABELS: Record<Layout, string> = { tek: "Tek sıra", karsilikli: "Karşılıklı", capraz: "Çapraz" };
 export const THREAD_LABELS: Record<Thread, string> = { acik: "Açık tek", kapali: "Kapalı tek", cift: "Çift tarafı dişli" };
@@ -30,6 +36,10 @@ export interface Project {
   batchId?: string;
   batchSavedAt?: number;
   batchPosition?: number;
+  projectId?: string;
+  projectTitle?: string;
+  mainEndType?: MainEndType;
+  branches?: Branch[];
 }
 
 export const DEFAULT_NAME = "İsimsiz proje";
@@ -60,7 +70,7 @@ export function todayDate(now = new Date()): string {
 export function savedBatches(projects: Project[]) {
   const groups = new Map<string, { id: string; savedAt: number; projects: Project[] }>();
   for (const project of projects) {
-    const id = project.batchId ?? `legacy:${project.id}`;
+    const id = project.projectId ?? project.batchId ?? `legacy:${project.id}`;
     const group = groups.get(id);
     if (group) group.projects.push(project);
     else groups.set(id, { id, savedAt: project.batchSavedAt ?? project.updatedAt, projects: [project] });
@@ -113,7 +123,7 @@ export interface Outlet {
  *   at the threaded inlet end (acik) or at the far end (kapali / cift).
  * Total length = start + (positions - 1) * spacing + end  (each cm counted once).
  */
-export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "end" | "layout" | "thread">) {
+export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "end" | "layout" | "thread" | "branches">) {
   const n = Math.max(1, Math.floor(p.count));
   const s = p.spacing;
   const outlets: Outlet[] = [];
@@ -133,12 +143,24 @@ export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "
       outlets.push({ pos: i * s, side: "bottom" });
     }
   }
-  const total = p.start + (positions - 1) * s + p.end;
+  if (p.branches) {
+    // Branch numbering is left-to-right, top before bottom; each side has its own axis chain.
+    outlets.sort((a, b) => a.pos - b.pos || (a.side === "top" ? -1 : 1));
+    const previous: Record<Outlet["side"], number | undefined> = { top: undefined, bottom: undefined };
+    outlets.forEach((o, i) => { const prev = previous[o.side]; o.pos = prev === undefined ? 0 : prev + (p.branches?.[i]?.spacing ?? s); previous[o.side] = o.pos; });
+  }
+  const extent = p.branches ? Math.max(0, ...outlets.map((o) => o.pos)) : (positions - 1) * s;
+  const total = p.start + extent + p.end;
   return { outlets, positions, total: Math.round(total * 100) / 100 };
 }
 
 export function validate(p: Project): string[] {
   const e: string[] = [];
+  if (p.mainEndType && !(p.mainEndType in MAIN_END_LABELS)) e.push("Ana boru uç tipi geçersiz.");
+  if (!PIPE_SIZES.includes(p.mainSize as typeof PIPE_SIZES[number])) e.push("Ana boru çapı geçersiz.");
+  if (p.branches) branchSettings(p).forEach((b, i) => {
+    if (!PIPE_SIZES.includes(b.size as typeof PIPE_SIZES[number]) || !Number.isFinite(b.length) || b.length <= 0 || !Number.isFinite(b.spacing) || b.spacing <= 0 || !["male", "flanged"].includes(b.connection)) e.push(`C${i + 1}: çap, boy, aks aralığı ve bağlantıyı kontrol edin.`);
+  });
   if (!Number.isSafeInteger(p.quantity) || p.quantity < 1) e.push("Adet 1 veya daha büyük bir tam sayı olmalı.");
   if (p.date && (!/^\d{4}-\d{2}-\d{2}$/.test(p.date) || Number.isNaN(Date.parse(p.date)) || new Date(p.date).toISOString().slice(0, 10) !== p.date)) e.push("Tarih geçersiz.");
   if (!Number.isFinite(p.count) || p.count < 1 || p.count > 60 || !Number.isInteger(p.count)) e.push("Çıkış sayısı 1 ile 60 arasında tam sayı olmalı.");

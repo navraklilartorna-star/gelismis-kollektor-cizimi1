@@ -21,3 +21,7 @@
 - Keep the editor public with inline account sign-in and one root auth-state provider; authenticated client queries power cloud records without protected SSR calls.
 - Preserve legacy device records for explicit import and retain their hidden name field for compatibility; visible naming uses the customer field.
 - Wrap production notes in the collector module and render them through shared drawing primitives; PDF accepts one project or a batch with one page per collector.
+- Advanced projects use separate owner-scoped customer and project entities; a SECURITY INVOKER database RPC atomically saves the project and exact member set to prevent cross-project mixing and partial saves.
+- Keep projectTitle distinct from the hidden legacy name and propagate project identity across ordered local drafts.
+- Advanced branch axes accumulate independently on each side, with the first axis at the start allowance; branch numbering follows original layout order, top before bottom.
+- Render advanced diagrams and paginated branch schedules through shared primitives for identical screen and PDF output, while retaining legacy drawing behavior until advanced settings are edited.
