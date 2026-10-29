@@ -36,10 +36,10 @@ export interface Project {
   batchId?: string;
   batchSavedAt?: number;
   batchPosition?: number;
-  projectId?: string;
-  projectTitle?: string;
-  mainEndType?: MainEndType;
-  branches?: Branch[];
+  projectId?: string | undefined;
+  projectTitle?: string | undefined;
+  mainEndType?: MainEndType | undefined;
+  branches?: Branch[] | undefined;
 }
 
 export const DEFAULT_NAME = "İsimsiz proje";

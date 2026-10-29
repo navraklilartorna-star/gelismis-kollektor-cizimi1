@@ -12,7 +12,7 @@ describe("advanced manufacturing rules", () => {
     expect(Object.keys(MAIN_END_LABELS)).toEqual(["open-open", "closed-closed", "open-closed", "closed-flanged", "flanged-flanged"]);
   });
   it("keeps per-branch size length spacing and connection through cloud serialization", () => {
-    const p = { ...newProject(), projectId: "project-a", projectTitle: "Kazan", mainEndType: "closed-flanged" as const };
+    const p = { ...newProject(), customerName: "Ahmet", projectId: "project-a", projectTitle: "Kazan", mainEndType: "closed-flanged" as const };
     const branches = branchSettings(p); branches[0] = { size: "1 1/2", length: 15, spacing: 25, connection: "flanged" };
     const advanced = { ...p, branches };
     expect(rowProject(projectRow(advanced,"owner-a"))).toEqual(advanced);
