@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Route } from "./index";
 import { newProject, type Project } from "@/lib/collector";
-import { saveCloudBatch, saveCloudProject, deleteCloudProject } from "@/lib/cloud-projects";
+import { saveManufacturingProject, saveCloudProject, deleteCloudProject } from "@/lib/cloud-projects";
 
 const records = vi.hoisted(() => ({ projects: [] as Project[] }));
 
@@ -19,7 +19,7 @@ vi.mock("@/lib/cloud-projects", () => ({
     records.projects = [saved, ...records.projects.filter((x) => x.id !== p.id)];
     return saved;
   }),
-  saveCloudBatch: vi.fn(async (items: Project[]) => { records.projects = [...records.projects, ...items]; return items; }),
+  saveManufacturingProject: vi.fn(async (items: Project[]) => { const id = items[0]?.batchId; records.projects = [...records.projects.filter(p => p.batchId !== id), ...items]; return items; }),
   deleteCloudProject: vi.fn(),
 }));
 
@@ -44,8 +44,8 @@ describe("collector editor actions", () => {
     expect(screen.getByLabelText("Adet")).toHaveValue("7");
     expect(screen.getByLabelText("Müşteri adı (isteğe bağlı)")).toHaveValue("Aaa");
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
-    await waitFor(() => expect(saveCloudBatch).toHaveBeenCalledTimes(1));
-    const first = vi.mocked(saveCloudBatch).mock.calls[0]?.[0] ?? [];
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(1));
+    const first = vi.mocked(saveManufacturingProject).mock.calls[0]?.[0] ?? [];
     expect(first.map((x) => x.quantity)).toEqual([7, 25, 1]);
     expect(first.map((x) => x.customerName)).toEqual(["Aaa", "Aaa", "Aaa"]);
     expect(new Set(first.map((x) => x.batchId)).size).toBe(1);
@@ -53,8 +53,8 @@ describe("collector editor actions", () => {
     fireEvent.change(screen.getByLabelText("Müşteri adı (isteğe bağlı)"), { target: { value: "Aaa" } });
     fireEvent.change(screen.getByLabelText("Adet"), { target: { value: "9" } });
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
-    await waitFor(() => expect(saveCloudBatch).toHaveBeenCalledTimes(2));
-    const second = vi.mocked(saveCloudBatch).mock.calls[1]?.[0] ?? [];
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(2));
+    const second = vi.mocked(saveManufacturingProject).mock.calls[1]?.[0] ?? [];
     expect(second).toHaveLength(1);
     expect(second[0]?.batchId).not.toBe(first[0]?.batchId);
     expect(records.projects).toHaveLength(4);
@@ -77,7 +77,7 @@ describe("collector editor actions", () => {
     fireEvent.change(screen.getByLabelText("Başlangıç uzunluğu (cm)"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 1 ·/ }));
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(records.projects).toHaveLength(0);
   });
 
@@ -97,7 +97,7 @@ describe("collector editor actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 1 ·/ }));
     expect(screen.getByLabelText("Adet")).toHaveValue("9");
     expect(screen.getAllByRole("button", { name: /Kollektör \d ·/ })).toHaveLength(2);
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(deleteCloudProject).not.toHaveBeenCalled();
   });
   it("keeps incomplete numeric input when switching without blocking navigation", async () => {
@@ -109,7 +109,7 @@ describe("collector editor actions", () => {
     expect(screen.getByLabelText("Çıkışlar arası (cm)")).toHaveValue("20");
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 2 ·/ }));
     expect(screen.getByLabelText("Çıkışlar arası (cm)")).toHaveValue("");
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(deleteCloudProject).not.toHaveBeenCalled();
   });
   it("notifies cloud save success only after an explicit Save click", async () => {
@@ -120,7 +120,7 @@ describe("collector editor actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 1 ·/ }));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
-    await waitFor(() => expect(saveCloudBatch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole("status")).toBeInTheDocument();
   });
   it("requires confirmed X before deleting a cloud record", async () => {
@@ -134,27 +134,27 @@ describe("collector editor actions", () => {
     confirm.mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Kollektör 1 sil" }));
     await waitFor(() => expect(deleteCloudProject).toHaveBeenCalledWith("cloud-one", "owner-a"));
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
   });
   it("keeps additions local and saves both collectors together only on Save", async () => {
     editor();
     fireEvent.change(screen.getByLabelText("Adet"), { target: { value: "7" } });
     fireEvent.click(screen.getByRole("button", { name: "+ Kollektör Ekle" }));
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(records.projects).toHaveLength(0);
     fireEvent.change(screen.getByLabelText("Adet"), { target: { value: "25" } });
     fireEvent.click(screen.getByRole("button", { name: "Projeler" }));
     expect(await screen.findByText("Henüz kayıtlı kollektör yok.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
-    await waitFor(() => expect(saveCloudBatch).toHaveBeenCalledTimes(1));
-    const saved = vi.mocked(saveCloudBatch).mock.calls[0]?.[0]?.[1];
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(1));
+    const saved = vi.mocked(saveManufacturingProject).mock.calls[0]?.[0]?.[1];
     expect(saved?.quantity).toBe(25);
     expect(records.projects).toHaveLength(2);
     expect(records.projects[0]?.customerName).toBe("İsimsiz Müşteri");
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 1 ·/ }));
     expect(screen.getByLabelText("Adet")).toHaveValue("7");
-    expect(saveCloudBatch).toHaveBeenCalledTimes(1);
+    expect(saveManufacturingProject).toHaveBeenCalledTimes(1);
     expect(records.projects[1]?.quantity).toBe(25);
   });
   it("confirmed cancellation returns to the list without saving the draft", async () => {
@@ -163,7 +163,7 @@ describe("collector editor actions", () => {
     fireEvent.change(screen.getByLabelText("Adet"), { target: { value: "25" } });
     fireEvent.click(screen.getByRole("button", { name: "Kollektör 1 iptal et" }));
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Adet")).toHaveValue(String(newProject().quantity));
     expect(screen.getByRole("heading", { name: "Kayıtlı projeler" })).toBeInTheDocument();
   });
@@ -174,7 +174,7 @@ describe("collector editor actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kollektör 1 iptal et" }));
     expect(screen.getByLabelText("Adet")).toHaveValue("25");
     expect(screen.queryByRole("heading", { name: "Kayıtlı projeler" })).not.toBeInTheDocument();
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
   });
   it("New resets edited fields and excludes previous unnamed collectors", async () => {
     records.projects = [{ ...newProject(), id: "old-unnamed", customerName: "İsimsiz Müşteri", count: 16 }];
@@ -190,7 +190,7 @@ describe("collector editor actions", () => {
     expect(screen.getByLabelText("Üretim notu")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Tümünü PDF Oluştur (1 sayfa)" })).toBeInTheDocument();
     expect(records.projects).toHaveLength(1);
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
   });
   it("adds only the session's collectors and cancels the added one without deleting saved records", async () => {
     records.projects = [{ ...newProject(), id: "old-unnamed", customerName: "İsimsiz Müşteri", count: 16 }];
@@ -202,7 +202,7 @@ describe("collector editor actions", () => {
     expect(records.projects).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Kollektör 2 iptal et" }));
     expect(screen.getByRole("heading", { name: "Kayıtlı projeler" })).toBeInTheDocument();
-    expect(saveCloudBatch).not.toHaveBeenCalled();
+    expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(records.projects).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
     expect(screen.getAllByRole("button", { name: /Kollektör \d ·/ })).toHaveLength(1);
