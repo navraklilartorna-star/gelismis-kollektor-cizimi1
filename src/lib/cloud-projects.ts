@@ -11,7 +11,8 @@ export function projectRow(project: Project, userId: string): Row {
     spacing: p.spacing, start_length: p.start, end_length: p.end, layout: p.layout,
     thread: p.thread, production_date: p.date, quantity: p.quantity, updated_at: p.updatedAt,
     batch_id: p.batchId ?? null, batch_saved_at: p.batchSavedAt ?? null, batch_position: p.batchPosition ?? 0,
-    manufacturing_project_id: p.projectId ?? null, project_title: p.projectTitle ?? "", main_end_type: p.mainEndType ?? null, branches: p.branches ? JSON.parse(JSON.stringify(p.branches)) : null };
+    manufacturing_project_id: p.projectId ?? null, project_title: p.projectTitle ?? "", main_end_type: p.mainEndType ?? null, branches: p.branches ? JSON.parse(JSON.stringify(p.branches)) : null,
+    auxiliary_outlets: p.auxiliaryOutlets ? JSON.parse(JSON.stringify(p.auxiliaryOutlets)) : null };
 }
 
 export function rowProject(row: Row): Project {
@@ -25,7 +26,8 @@ export function rowProject(row: Row): Project {
     ...(row.manufacturing_project_id ? { projectId: row.manufacturing_project_id } : {}),
     ...(row.project_title ? { projectTitle: row.project_title } : {}),
     ...(row.main_end_type ? { mainEndType: row.main_end_type as Project["mainEndType"] } : {}),
-    ...(Array.isArray(row.branches) ? { branches: row.branches as unknown as Project["branches"] } : {}) });
+    ...(Array.isArray(row.branches) ? { branches: row.branches as unknown as Project["branches"] } : {}),
+    ...(row.auxiliary_outlets && typeof row.auxiliary_outlets === "object" && !Array.isArray(row.auxiliary_outlets) ? { auxiliaryOutlets: row.auxiliary_outlets as unknown as Project["auxiliaryOutlets"] } : {}) });
 }
 
 /** Customer, project, members and removals commit together under the caller's RLS. */
