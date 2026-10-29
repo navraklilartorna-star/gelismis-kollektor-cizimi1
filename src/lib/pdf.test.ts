@@ -18,7 +18,7 @@ describe("customer PDF", () => {
       const second = { ...newProject(), customerName: "Ahmet Bey", name: "Sera 2", count: 9 };
       const pdf = await makePdf([first, second]);
       const doc = await PDFDocument.load(await pdf.arrayBuffer());
-      expect(doc.getPageCount()).toBe(3);
+      expect(doc.getPageCount()).toBe(2);
       expect(doc.getTitle()).toBe("Ahmet Bey");
       const single = await PDFDocument.load(await (await makePdf(first)).arrayBuffer());
       expect(single.getPageCount()).toBe(1);

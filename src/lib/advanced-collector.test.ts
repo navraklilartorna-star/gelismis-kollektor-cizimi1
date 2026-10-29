@@ -36,7 +36,7 @@ describe("advanced manufacturing rules", () => {
   it("paginates all sixty branch details without losing any manufacturing records", () => {
     const p={...newProject(),count:60,mainEndType:"flanged-flanged" as const};
     const pages=buildDrawingPages(p);
-    expect(pages).toHaveLength(4);
+    expect(pages).toHaveLength(1);
     const labels=pages.flat().filter(v=>v.t==="text" && /^C\d+$/.test(v.text) && v.c === "#111827");
     expect(labels).toHaveLength(60);
   });

@@ -129,7 +129,7 @@ export interface Outlet {
  *   at the threaded inlet end (acik) or at the far end (kapali / cift).
  * Total length = start + (positions - 1) * spacing + end  (each cm counted once).
  */
-export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "end" | "layout" | "thread" | "branches">) {
+export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "end" | "layout" | "thread" | "branches"> & { auxiliaryOutlets?: AuxiliaryOutlets | undefined }) {
   const n = Math.max(1, Math.floor(p.count));
   const s = p.spacing;
   const outlets: Outlet[] = [];
@@ -156,8 +156,12 @@ export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "
     outlets.forEach((o, i) => { const prev = previous[o.side]; o.pos = prev === undefined ? 0 : prev + (p.branches?.[i]?.spacing ?? s); previous[o.side] = o.pos; });
   }
   const extent = p.branches ? Math.max(0, ...outlets.map((o) => o.pos)) : (positions - 1) * s;
-  const total = p.start + extent + p.end;
-  return { outlets, positions, total: Math.round(total * 100) / 100 };
+  // End fittings sit outside the numbered outlets: left ones before C1, right ones after the last outlet.
+  const aux = Object.values(p.auxiliaryOutlets ?? {}).filter((o): o is AuxiliaryOutlet => Boolean(o));
+  const extra = (side: "left" | "right") => Math.max(0, ...aux.filter(o => o.position === side).map(o => Number.isFinite(o.offset) ? o.offset : 0));
+  const leftExtra = extra("left"), rightExtra = extra("right");
+  const total = leftExtra + p.start + extent + p.end + rightExtra;
+  return { outlets, positions, leftExtra, total: Math.round(total * 100) / 100 };
 }
 
 export function validate(p: Project): string[] {
@@ -191,7 +195,7 @@ export function manufacturingRows(p: Project) {
   const rows = outlets.map((o, i) => {
     const b = branches[i] ?? { size: p.outSize, length: 10, spacing: p.spacing, connection: "male" as const };
     const first = !seen.has(o.side); seen.add(o.side);
-    return { id: `C${i + 1}`, size: b.size, length: b.length, axis: first ? p.start : b.spacing, side: o.side, position: p.start + o.pos, connection: b.connection, end: undefined as "left" | "right" | undefined };
+    return { id: `C${i + 1}`, size: b.size, length: b.length, axis: first ? p.start : b.spacing, side: o.side, position: layout.leftExtra + p.start + o.pos, connection: b.connection, end: undefined as "left" | "right" | undefined };
   });
   for (const kind of ["drain", "gauge"] as const) {
     const o = p.auxiliaryOutlets?.[kind];
