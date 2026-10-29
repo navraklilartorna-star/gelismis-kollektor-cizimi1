@@ -1,4 +1,7 @@
 # Requested changes
+- [ ] Put the technical diagram above the manufacturing schedule in screen and PDF sheets.
+- [ ] Add optional left/right bottom drain and fixed half-inch top gauge fittings, preserving cloud saves and old geometry.
+- [ ] Verify fitting save/reopen, dimensions, pagination and PDF visually and with tests.
 - [x] Add separate cloud customer/project records and preserve existing saves.
 - [x] Add main end types and independent numbered branch settings.
 - [x] Match advanced drawing and PDF annotations and verify project isolation end to end.
