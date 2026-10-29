@@ -25,7 +25,7 @@ describe("workshop optional outlets", () => {
     expect(manufacturingRows(p).map(r => [r.axis, r.position])).toEqual([[10,10],[10,10],[35,45],[20,30]]);
   });
   it("preserves both optional outlet settings through cloud round trips", () => {
-    const p = { ...newProject(), auxiliaryOutlets: { drain: defaultAuxiliaryOutlet("drain"), gauge: defaultAuxiliaryOutlet("gauge") } };
+    const p = { ...newProject(), customerName: "Atölye", auxiliaryOutlets: { drain: defaultAuxiliaryOutlet("drain"), gauge: defaultAuxiliaryOutlet("gauge") } };
     expect(rowProject(projectRow(p, "owner"))).toEqual(p);
     expect(rowProject(projectRow(newProject(), "owner")).auxiliaryOutlets).toBeUndefined();
   });
