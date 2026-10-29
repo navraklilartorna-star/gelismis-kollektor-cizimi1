@@ -32,7 +32,6 @@ const PIPE = "#eef0f3";
 
 export function buildDrawing(p: Project): Prim[] {
   return advancedDrawingPages(p)[0] ?? [];
-
 }
 
 export function buildDrawingPages(p: Project): Prim[][] {
@@ -46,8 +45,8 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const ends: MainEndType = p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed");
   const header = (): Prim[] => [
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
-    { t: "text", x: 30, y: 39, s: 23, text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
-    { t: "text", x: 30, y: 68, s: 19, text: p.projectTitle?.trim() || "Kollektör projesi", bold: true, c: INK },
+    { t: "text", x: 30, y: 39, s: Math.min(23, 550 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
+    { t: "text", x: 30, y: 68, s: Math.min(19, 550 / Math.max(1, (p.projectTitle?.length ?? 1) * 0.65)), text: p.projectTitle?.trim() || "Kollektör projesi", bold: true, c: INK },
     { t: "text", x: 30, y: 94, s: 14, text: `${LAYOUT_LABELS[p.layout]} • ${MAIN_END_LABELS[ends]} • ${p.count} branşman`, c: INK },
     { t: "text", x: 970, y: 39, s: 17, text: "NAVRAKLILAR TORNA", bold: true, c: INK, anchor: "end" },
     { t: "text", x: 970, y: 67, s: 14, text: `Tarih: ${p.date} • cm / inç`, c: INK, anchor: "end" },
@@ -58,7 +57,8 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const text = (x: number, y: number, value: string, s = 16, c = INK) => out.push({ t: "text", x, y, text: value, s, c, anchor: "middle" });
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*6,y-3],[x+dir*6,y+3]], fill: DIM });
   const longest = Math.max(1, ...rows.map(b => b.length));
-  const scale = Math.min(740 / Math.max(total, 1), 62 / longest);
+  // Horizontal axis dimensions use the whole sheet; vertical lengths share their own scale.
+  const scale = 740 / Math.max(total, 1), lengthScale = Math.min(scale, 62 / longest);
   const x0 = (W - total * scale) / 2, x1 = x0 + total * scale, y = 233, ph = 36;
   out.push({ t: "rect", x: x0, y: y-ph/2, w: x1-x0, h: ph, fill: PIPE, stroke: INK, sw: 2 });
   line(x0,y,x1,y,INK,0.6);
@@ -73,12 +73,12 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const sideRows = rows.filter(r => r.side === side).sort((a,b) => a.position-b.position);
     sideRows.forEach((b,index) => {
       const x=x0+b.position*scale, dir=side === "top" ? -1 : 1;
-      const base=y+dir*ph/2, tip=base+dir*b.length*scale;
+      const base=y+dir*ph/2, tip=base+dir*b.length*lengthScale;
       const size=b.size.split(" ").reduce((sum,part) => {const [a,d]=part.split("/").map(Number);return sum+(a??0)/(d??1);},0);
       const width=Math.max(5,Math.min(24,size*8));
       out.push({t:"rect",x:x-width/2,y:Math.min(base,tip),w:width,h:Math.abs(tip-base),fill:PIPE,stroke:INK,sw:1.5});
       if (b.connection === "flanged") out.push({t:"rect",x:x-width,y:tip-3,w:width*2,h:6,fill:PIPE,stroke:INK,sw:1.5});
-      else for(let k=2;k<Math.min(12,b.length*scale);k+=4) line(x-width/2,tip-dir*k,x+width/2,tip-dir*(k+2),THREAD,1);
+      else for(let k=2;k<Math.min(12,b.length*lengthScale);k+=4) line(x-width/2,tip-dir*k,x+width/2,tip-dir*(k+2),THREAD,1);
       const labelX=sideRows.length === 1 ? 500 : 95+index*810/(sideRows.length-1), labelY=side === "top" ? 146 : 337;
       line(x,tip,labelX,labelY+(dir === -1 ? 5 : -12),DIM,0.5);
       text(labelX,labelY,b.id,sideRows.length>20 ? 9 : 13,DIM);
