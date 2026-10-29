@@ -79,10 +79,17 @@ function advancedDrawingPages(p: Project): Prim[][] {
       out.push({t:"rect",x:x-width/2,y:Math.min(base,tip),w:width,h:Math.abs(tip-base),fill:PIPE,stroke:INK,sw:1.5});
       if (b.connection === "flanged") out.push({t:"rect",x:x-width,y:tip-3,w:width*2,h:6,fill:PIPE,stroke:INK,sw:1.5});
       else for(let k=2;k<Math.min(12,b.length*lengthScale);k+=4) line(x-width/2,tip-dir*k,x+width/2,tip-dir*(k+2),THREAD,1);
-      const labelX=sideRows.length === 1 ? 500 : 95+index*810/(sideRows.length-1), labelY=side === "top" ? 146 : 337;
-      line(x,tip,labelX,labelY+(dir === -1 ? 5 : -12),DIM,0.5);
-      text(labelX,labelY,b.id,sideRows.length>20 ? 9 : 13,DIM);
-      if(sideRows.length<=8) text(labelX,labelY+14,`${inchLabel(b.size)} / ${fmt(b.length)} cm`,11,DIM);
+      const crowded = sideRows.length > 12;
+      const labelX = Math.min(935, Math.max(65, x));
+      const lane = crowded ? index % 3 : 0;
+      const labelY = side === "top" ? 139 + lane * 22 : 319 + lane * 14;
+      const previous = sideRows[index - 1], next = sideRows[index + 1];
+      const gap = Math.min(previous ? (b.position - previous.position) * scale : 120, next ? (next.position - b.position) * scale : 120);
+      const labelSize = crowded ? 6 : Math.min(11, Math.max(8, gap / 7));
+      line(x,tip,labelX,side === "top" ? labelY + (crowded ? 18 : 29) : labelY - 9,DIM,0.5);
+      text(labelX,labelY,`${b.id} · ${inchLabel(b.size)}`,labelSize,DIM);
+      text(labelX,labelY + (crowded ? 8 : 13),`Boy ${fmt(b.length)} cm`,labelSize,DIM);
+      text(labelX,labelY + (crowded ? 16 : 26),`Aks ${fmt(b.axis)} cm`,labelSize,DIM);
     });
   }
   const mainLabel=`ANA BORU ${inchLabel(p.mainSize)}`;
