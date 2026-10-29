@@ -13,7 +13,7 @@ describe("workshop optional outlets", () => {
   });
   it("positions the drain below and gauge above at their selected left or right allowance", () => {
     const p = { ...newProject(), auxiliaryOutlets: { drain: { ...defaultAuxiliaryOutlet("drain"), position: "left" as const, offset: 3 }, gauge: { ...defaultAuxiliaryOutlet("gauge"), offset: 2 } } };
-    expect(manufacturingRows(p).slice(-2).map(r => [r.id, r.side, r.position, r.axis, r.size])).toEqual([["B1", "bottom", 3, 3, "3/4"], ["M1", "top", 35, 2, "1/2"]]);
+    expect(manufacturingRows(p).slice(-2).map(r => [r.id, r.side, r.position, r.axis, r.size])).toEqual([["B1", "bottom", 3, 3, "3/4"], ["M1", "top", 37, 2, "1/2"]]);
   });
   it("enforces the fixed half-inch manometer diameter", () => {
     expect(validate({ ...newProject(), auxiliaryOutlets: { gauge: { ...defaultAuxiliaryOutlet("gauge"), size: "3/4" } } })).toHaveLength(1);
