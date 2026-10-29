@@ -5,7 +5,7 @@ export function BranchEditor({ project, onChange }: { project: Project; onChange
   const branches = branchSettings(project);
   const change = (i: number, values: Partial<Branch>) => onChange(branches.map((b, j) => j === i ? { ...b, ...values } : b));
   return <section className="space-y-3 border-y border-border py-4">
-    <h2 className="text-lg font-bold">Branşman ayarları</h2>
+    <h2 className="text-lg font-bold">Çıkış ayarları</h2>
     <div className="space-y-3">{branches.map((b, i) => <fieldset key={i} className="grid min-w-0 grid-cols-2 gap-3 border-b border-border pb-3 sm:grid-cols-4">
       <legend className="mb-2 font-mono font-bold text-accent">C{i + 1}</legend>
       <label className="min-w-0 text-sm">Çap (inç)<select aria-label={`C${i + 1} çap`} className={control} value={b.size} onChange={e => change(i, { size: e.target.value })}>{PIPE_SIZES.map(s => <option key={s} value={s}>{inchFlat(s)}″</option>)}</select></label>

@@ -252,9 +252,6 @@ function Index() {
             <input className={inputCls} list="customer-names" maxLength={45} placeholder="Örn. Ahmet Bey" value={p.customerName} onChange={(e) => setP({ ...p, customerName: e.target.value })} />
             <datalist id="customer-names">{Array.from(new Set(list.map((x) => x.customerName).filter(Boolean))).map((name) => <option key={name} value={name} />)}</datalist>
           </Field>
-          <Field label="Proje adı">
-            <input className={inputCls} maxLength={45} placeholder="Örn. Kazan dairesi — 1. kat" value={p.projectTitle ?? ""} onChange={e => setP({ ...p, projectTitle: e.target.value })} />
-          </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Tarih">
               <input type="date" className={`${inputCls} appearance-none font-sans text-base [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left`} value={p.date} onChange={(e) => setP({ ...p, date: e.target.value })} />
@@ -266,11 +263,6 @@ function Index() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ana boru (inç)">
               <select className={inputCls} value={p.mainSize} onChange={(e) => setP({ ...p, mainSize: e.target.value })}>
-                {PIPE_SIZES.map((s) => <option key={s} value={s}>{inchFlat(s)}″</option>)}
-              </select>
-            </Field>
-            <Field label="Çıkış çapı (inç)">
-              <select className={inputCls} value={p.outSize} onChange={(e) => setP({ ...p, outSize: e.target.value })}>
                 {PIPE_SIZES.map((s) => <option key={s} value={s}>{inchFlat(s)}″</option>)}
               </select>
             </Field>
@@ -295,7 +287,7 @@ function Index() {
         </fieldset>
 
         <section className="space-y-3 border-y border-border py-4">
-          <h2 className="break-words text-lg font-bold">{customerLabel(p.customerName)} — {p.projectTitle || "Kollektör projesi"} — Kollektörler ({batch.length})</h2>
+          <h2 className="break-words text-lg font-bold">{customerLabel(p.customerName)} — Kollektörler ({batch.length})</h2>
           <div className="space-y-2">{batch.map((x, i) => <div key={x.id} className="flex items-center gap-2">
             <Button disabled={saving} variant={x.id === p.id ? "secondary" : "outline"} className="h-auto min-w-0 flex-1 justify-start whitespace-normal text-left" onClick={() => switchCollector(x)}>
               <span className="min-w-0 break-words">Kollektör {i + 1} · {x.count} çıkış · {x.quantity} adet · {fmt(computeLayout(x).total)} cm<span>{x.id === p.id ? " • Açık" : ""}</span></span>
@@ -355,7 +347,7 @@ function Index() {
                 <AccordionContent className="space-y-2">
                   {savedBatches(group.projects).map((record, recordIndex) => <div key={record.id} className="space-y-1 border-l-2 border-border pl-2">
                     <Button disabled={saving} variant="outline" className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => openBatch(record.projects)}>
-                      {record.projects[0]?.projectTitle || `Kayıt ${recordIndex + 1}`} · {record.projects.length} Kollektör · {new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", dateStyle: "short", timeStyle: "short" }).format(new Date(record.savedAt))}
+                      {`Kayıt ${recordIndex + 1}`} · {record.projects.length} Kollektör · {new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", dateStyle: "short", timeStyle: "short" }).format(new Date(record.savedAt))}
                     </Button>
                     {record.projects.map((x, i) => <div key={x.id} className="flex items-center gap-2">
                       <Button disabled={saving} variant="ghost" className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left" onClick={() => openBatch(record.projects, x)}>
