@@ -1,7 +1,9 @@
 # Requested changes
-- [ ] Put the technical diagram above the manufacturing schedule in screen and PDF sheets.
-- [ ] Add optional left/right bottom drain and fixed half-inch top gauge fittings, preserving cloud saves and old geometry.
-- [ ] Verify fitting save/reopen, dimensions, pagination and PDF visually and with tests.
+- [x] Put the technical diagram above the manufacturing schedule in screen and PDF sheets.
+- [x] Add optional left/right bottom drain and fixed half-inch top gauge fittings, preserving cloud saves and old geometry.
+- [x] Verify fitting save/reopen, dimensions, pagination and PDF visually and with tests.
+
+Workshop QA: 54 tests passed; signed-in cloud save/reopen retained fitting sides, offsets and branch connection. Draft switching and PDF download passed. The initial diagram was too narrow; independent horizontal/vertical scales widened it and made dimension arrows readable. All five short/sixty-branch PDF pages were visually inspected with no clipping or overlaps. Temporary test collector removed; native phone PDF display remains unverified.
 - [x] Add separate cloud customer/project records and preserve existing saves.
 - [x] Add main end types and independent numbered branch settings.
 - [x] Match advanced drawing and PDF annotations and verify project isolation end to end.
