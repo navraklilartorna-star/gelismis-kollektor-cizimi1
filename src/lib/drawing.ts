@@ -72,7 +72,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const xs = sideRows.map(b => x0 + b.position*scale);
     const minGap = Math.min(999, ...xs.slice(1).map((x,i) => x - (xs[i] ?? 0)));
     const lanes = minGap >= 64 ? 1 : minGap >= 34 ? 2 : 3;
-    const fs = lanes === 3 ? 10 : 12, lh = fs + 2, laneH = lh*2 + 4;
+    const fs = lanes === 3 ? 10 : lanes === 2 ? 12 : 14, lh = fs + 2, laneH = lh*2 + 4;
     const dir = side === "top" ? -1 : 1, base = y + dir*ph/2;
     const tipLimit = base + dir*45;
     sideRows.forEach((b,index) => {
