@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       collector_projects: {
         Row: {
+          auxiliary_outlets: Json | null
           batch_id: string | null
           batch_position: number
           batch_saved_at: number | null
@@ -41,6 +42,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auxiliary_outlets?: Json | null
           batch_id?: string | null
           batch_position?: number
           batch_saved_at?: number | null
@@ -66,6 +68,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          auxiliary_outlets?: Json | null
           batch_id?: string | null
           batch_position?: number
           batch_saved_at?: number | null
@@ -166,6 +169,7 @@ export type Database = {
           _title: string
         }
         Returns: {
+          auxiliary_outlets: Json | null
           batch_id: string | null
           batch_position: number
           batch_saved_at: number | null
