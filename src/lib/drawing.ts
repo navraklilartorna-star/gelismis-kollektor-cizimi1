@@ -167,9 +167,9 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const ends: MainEndType = p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed");
   const header = (subtitle: string): Prim[] => [
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
-    { t: "text", x: 30, y: 40, s: 23, text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
-    { t: "text", x: 30, y: 72, s: 21, text: p.projectTitle?.trim() || "Kollektör projesi", bold: true, c: INK },
-    { t: "text", x: 30, y: 104, s: 16, text: subtitle, c: INK },
+    { t: "text", x: 30, y: 40, s: Math.min(23, 560 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
+    { t: "text", x: 30, y: 72, s: Math.min(21, 560 / Math.max(1, (p.projectTitle?.length ?? 18) * 0.65)), text: p.projectTitle?.trim() || "Kollektör projesi", bold: true, c: INK },
+    { t: "text", x: 30, y: 104, s: Math.min(16, 700 / Math.max(1, subtitle.length * 0.65)), text: subtitle, c: INK },
     { t: "text", x: 970, y: 40, s: 17, text: "NAVRAKLILAR TORNA", bold: true, c: INK, anchor: "end" },
     { t: "text", x: 970, y: 72, s: 17, text: `Tarih: ${p.date} • cm / inç`, c: INK, anchor: "end" },
     { t: "text", x: 970, y: 115, s: 32, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "end" },
@@ -205,6 +205,10 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const labelY = o.side === "top" ? 195 : 490;
     line(x, tip, labelX, labelY + (dir === -1 ? 6 : -20), DIM, 0.5);
     text(labelX, labelY, `C${i + 1}`, sideIndices.length > 18 ? 10 : 14, DIM);
+    if (sideIndices.length <= 6) {
+      text(labelX, labelY + 16, `${inchLabel(b.size)} • ${fmt(b.length)} cm`, 12, DIM);
+      text(labelX, labelY + 30, b.connection === "flanged" ? "FLANŞLI" : "DİŞLİ / ERKEK", 11, DIM);
+    }
   });
   text(500, y + 6, `ANA BORU ${inchLabel(p.mainSize)}`, 20);
   const positions = [0, ...new Set(outlets.map(o => p.start + o.pos)), total].sort((a,b) => a-b);

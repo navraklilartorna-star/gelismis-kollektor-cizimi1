@@ -1,7 +1,7 @@
 # Requested changes
-- [ ] Add separate cloud customer/project records and preserve existing saves.
-- [ ] Add main end types and independent numbered branch settings.
-- [ ] Match advanced drawing and PDF annotations and verify project isolation end to end.
+- [x] Add separate cloud customer/project records and preserve existing saves.
+- [x] Add main end types and independent numbered branch settings.
+- [x] Match advanced drawing and PDF annotations and verify project isolation end to end.
 - [x] Preserve all editor collectors when changing customer name.
 - [x] Save all displayed collectors atomically as a uniquely identified snapshot on each explicit Save.
 - [x] Show dated saved subgroups under customers and reopen only the selected subgroup.
