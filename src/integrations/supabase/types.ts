@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      collector_projects: {
+        Row: {
+          batch_id: string | null
+          batch_position: number
+          batch_saved_at: number | null
+          customer_name: string
+          end_length: number
+          id: string
+          layout: string
+          main_size: string
+          name: string
+          notes: string
+          out_size: string
+          outlet_count: number
+          production_date: string
+          quantity: number
+          spacing: number
+          start_length: number
+          thread: string
+          updated_at: number
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          batch_position?: number
+          batch_saved_at?: number | null
+          customer_name?: string
+          end_length?: number
+          id: string
+          layout?: string
+          main_size?: string
+          name?: string
+          notes?: string
+          out_size?: string
+          outlet_count?: number
+          production_date?: string
+          quantity?: number
+          spacing?: number
+          start_length?: number
+          thread?: string
+          updated_at: number
+          user_id?: string
+        }
+        Update: {
+          batch_id?: string | null
+          batch_position?: number
+          batch_saved_at?: number | null
+          customer_name?: string
+          end_length?: number
+          id?: string
+          layout?: string
+          main_size?: string
+          name?: string
+          notes?: string
+          out_size?: string
+          outlet_count?: number
+          production_date?: string
+          quantity?: number
+          spacing?: number
+          start_length?: number
+          thread?: string
+          updated_at?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
