@@ -5,6 +5,11 @@ export type Thread = "acik" | "kapali" | "cift";
 export type MainEndType = "open-open" | "closed-closed" | "open-closed" | "closed-flanged" | "flanged-flanged";
 export const MAIN_END_LABELS: Record<MainEndType, string> = { "open-open": "İki Tarafı Açık", "closed-closed": "İki Tarafı Kapalı", "open-closed": "Bir Tarafı Açık Bir Tarafı Kapalı", "closed-flanged": "Bir Tarafı Kapalı Bir Tarafı Flanşlı", "flanged-flanged": "İki Tarafı Flanşlı" };
 export interface Branch { size: string; length: number; spacing: number; connection: "male" | "flanged" }
+export interface AuxiliaryOutlet { position: "left" | "right"; size: string; length: number; offset: number }
+export type AuxiliaryOutlets = { drain?: AuxiliaryOutlet; gauge?: AuxiliaryOutlet };
+export function defaultAuxiliaryOutlet(kind: "drain" | "gauge"): AuxiliaryOutlet {
+  return { position: "right", size: kind === "gauge" ? "1/2" : "3/4", length: 5, offset: 2 };
+}
 export function branchSettings(p: Project): Branch[] {
   return Array.from({ length: Math.min(60, Math.max(1, Math.floor(p.count) || 1)) }, (_, i) => p.branches?.[i] ?? { size: p.outSize, length: 10, spacing: p.spacing, connection: "male" });
 }
@@ -40,6 +45,7 @@ export interface Project {
   projectTitle?: string | undefined;
   mainEndType?: MainEndType | undefined;
   branches?: Branch[] | undefined;
+  auxiliaryOutlets?: AuxiliaryOutlets | undefined;
 }
 
 export const DEFAULT_NAME = "İsimsiz proje";
@@ -156,6 +162,10 @@ export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "
 
 export function validate(p: Project): string[] {
   const e: string[] = [];
+  for (const [kind, outlet] of Object.entries(p.auxiliaryOutlets ?? {})) {
+    if (!outlet) continue;
+    if (!["left", "right"].includes(outlet.position) || !PIPE_SIZES.includes(outlet.size as typeof PIPE_SIZES[number]) || (kind === "gauge" && outlet.size !== "1/2") || !Number.isFinite(outlet.length) || outlet.length <= 0 || !Number.isFinite(outlet.offset) || outlet.offset <= 0 || outlet.offset >= computeLayout(p).total) e.push(`${kind === "gauge" ? "Manometre" : "Boşaltma"} çıkışı: çap, boy ve uçtan aks ölçüsünü kontrol edin.`);
+  }
   if (p.mainEndType && !(p.mainEndType in MAIN_END_LABELS)) e.push("Ana boru uç tipi geçersiz.");
   if (!PIPE_SIZES.includes(p.mainSize as typeof PIPE_SIZES[number])) e.push("Ana boru çapı geçersiz.");
   if (p.branches) branchSettings(p).forEach((b, i) => {
@@ -171,6 +181,24 @@ export function validate(p: Project): string[] {
 }
 
 export const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
+
+/** One ordered production schedule for drawing, PDF and fitting placement. */
+export function manufacturingRows(p: Project) {
+  const layout = computeLayout(p);
+  const outlets = p.branches ? layout.outlets : [...layout.outlets].sort((a, b) => a.pos - b.pos || (a.side === "top" ? -1 : 1));
+  const branches = branchSettings(p);
+  const seen = new Set<string>();
+  const rows = outlets.map((o, i) => {
+    const b = branches[i] ?? { size: p.outSize, length: 10, spacing: p.spacing, connection: "male" as const };
+    const first = !seen.has(o.side); seen.add(o.side);
+    return { id: `C${i + 1}`, size: b.size, length: b.length, axis: first ? p.start : b.spacing, side: o.side, position: p.start + o.pos, connection: b.connection, end: undefined as "left" | "right" | undefined };
+  });
+  for (const kind of ["drain", "gauge"] as const) {
+    const o = p.auxiliaryOutlets?.[kind];
+    if (o) rows.push({ id: kind === "drain" ? "B1" : "M1", size: kind === "gauge" ? "1/2" : o.size, length: o.length, axis: o.offset, side: kind === "drain" ? "bottom" : "top", position: o.position === "left" ? o.offset : layout.total - o.offset, connection: "male", end: o.position });
+  }
+  return rows;
+}
 
 const VULGAR: Record<string, string> = { "1/4": "¼", "1/2": "½", "3/4": "¾" };
 /** Mixed inch sizes ("1 1/2") render as "1½"; plain fractions ("3/4") stay as-is. */

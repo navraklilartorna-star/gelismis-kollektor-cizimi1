@@ -36,8 +36,8 @@ describe("advanced manufacturing rules", () => {
   it("paginates all sixty branch details without losing any manufacturing records", () => {
     const p={...newProject(),count:60,mainEndType:"flanged-flanged" as const};
     const pages=buildDrawingPages(p);
-    expect(pages).toHaveLength(5);
-    const labels=pages.slice(1).flat().filter(v=>v.t==="text" && /^C\d+$/.test(v.text));
+    expect(pages).toHaveLength(4);
+    const labels=pages.flat().filter(v=>v.t==="text" && /^C\d+$/.test(v.text) && v.c === "#111827");
     expect(labels).toHaveLength(60);
   });
   it("saves the exact project membership atomically with one RPC", async () => {

@@ -6,6 +6,7 @@ import { AccountDialog } from "@/components/AccountDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject } from "@/lib/cloud-projects";
 import { BranchEditor } from "@/components/BranchEditor";
+import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
 import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
 import { Button } from "@/components/ui/button";
@@ -283,6 +284,7 @@ function Index() {
           <Group label="Dişli bağlantı tipi"><Seg<Thread> value={p.thread} options={THREAD_LABELS} onChange={(thread) => setP({ ...p, thread })} /></Group>
           <Field label="Ana boru uçları"><select className={`${inputCls} font-sans text-base`} value={p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed")} onChange={e => setP({ ...p, mainEndType: e.target.value as MainEndType })}>{Object.entries(MAIN_END_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <BranchEditor project={parsed} onChange={branches => setP({ ...p, branches })} />
+          <AuxiliaryOutletEditor project={parsed} onChange={auxiliaryOutlets => { setP({ ...p, auxiliaryOutlets }); setPdf(null); }} />
           <Field label="Üretim notu">
             <textarea className={`${inputCls} h-28 resize-y font-sans text-base`} maxLength={180} placeholder="Örn. Çıkışlar kaynak sonrası kontrol edilecek." value={p.notes} onChange={(e) => setP({ ...p, notes: e.target.value })} />
           </Field>

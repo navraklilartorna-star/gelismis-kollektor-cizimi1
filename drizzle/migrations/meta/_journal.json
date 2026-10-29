@@ -22,6 +22,13 @@
       "when": 1793266914669,
       "tag": "0002_fix_atomic_project_save_alias",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793268207931,
+      "tag": "0003_collector_optional_fittings",
+      "breakpoints": true
     }
   ]
 }
