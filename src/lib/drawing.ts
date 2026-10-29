@@ -82,7 +82,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
       const crowded = sideRows.length > 12;
       const labelX = Math.min(935, Math.max(65, x));
       const lane = crowded ? index % 3 : 0;
-      const labelY = side === "top" ? 139 + lane * 22 : 319 + lane * 14;
+      const labelY = side === "top" ? 121 + lane * 22 : 319 + lane * 14;
       const previous = sideRows[index - 1], next = sideRows[index + 1];
       const gap = Math.min(previous ? (b.position - previous.position) * scale : 120, next ? (next.position - b.position) * scale : 120);
       const labelSize = crowded ? 6 : Math.min(11, Math.max(8, gap / 7));
