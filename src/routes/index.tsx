@@ -236,7 +236,7 @@ function Index() {
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">Projeler</Button>
           <Button variant="ghost" disabled={saving} onClick={startNew} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">+ Yeni</Button>
-          <Button variant="ghost" disabled={!ready || saving} onClick={() => user ? signOut() : setShowAccount(true)} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">{user ? "Çıkış yap" : "Giriş yap"}</Button>
+          <Button variant="ghost" disabled={!ready || saving} onClick={() => user ? signOut() : setShowAccount(true)} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold"><span key={user ? "out" : "in"}>{user ? "Çıkış yap" : "Giriş yap"}</span></Button>
         </div>
       </header>
 
@@ -288,7 +288,7 @@ function Index() {
           <h2 className="break-words text-lg font-bold">{customerLabel(p.customerName)} — Kollektörler ({batch.length})</h2>
           <div className="space-y-2">{batch.map((x, i) => <div key={x.id} className="flex items-center gap-2">
             <Button disabled={saving} variant={x.id === p.id ? "secondary" : "outline"} className="h-auto min-w-0 flex-1 justify-start whitespace-normal text-left" onClick={() => switchCollector(x)}>
-              <span className="min-w-0 break-words">Kollektör {i + 1} · {x.count} çıkış · {x.quantity} adet · {fmt(computeLayout(x).total)} cm{x.id === p.id ? " • Açık" : ""}</span>
+              <span className="min-w-0 break-words">Kollektör {i + 1} · {x.count} çıkış · {x.quantity} adet · {fmt(computeLayout(x).total)} cm<span>{x.id === p.id ? " • Açık" : ""}</span></span>
             </Button>
             {x.id === p.id && <Button variant="outline" size="icon" disabled={saving || busy} className="h-11 w-11 shrink-0 border-destructive text-destructive" aria-label={`Kollektör ${i + 1} iptal et`} title="Kollektörü iptal et" onClick={cancelDesign}><X /></Button>}
           </div>)}</div>
@@ -307,9 +307,9 @@ function Index() {
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-20 flex gap-3 border-t border-border bg-background/95 p-4 backdrop-blur">
-        <Button onClick={() => save()} disabled={saving || !ready} className="h-auto flex-1 rounded-2xl py-4 text-lg font-bold">{saving ? "Kaydediliyor…" : "Kaydet"}</Button>
+        <Button onClick={() => save()} disabled={saving || !ready} className="h-auto flex-1 rounded-2xl py-4 text-lg font-bold"><span key={saving ? "s" : "i"}>{saving ? "Kaydediliyor…" : "Kaydet"}</span></Button>
         <Button onClick={() => createPdf()} disabled={busy} className="h-auto flex-[2] rounded-2xl bg-accent py-4 text-lg font-bold text-accent-foreground shadow-lg disabled:opacity-60">
-          {busy ? "Hazırlanıyor…" : "PDF Oluştur"}
+          <span key={busy ? "b" : "i"}>{busy ? "Hazırlanıyor…" : "PDF Oluştur"}</span>
         </Button>
       </footer>
 
