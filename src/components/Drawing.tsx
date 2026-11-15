@@ -6,6 +6,7 @@ export function Drawing({ project }: { project: Project }) {
   return (
     <div>{pages.map((prims, page) => <svg key={page} aria-label={page === 0 ? "Kollektör teknik çizimi" : `Branşman imalat listesi ${page}`} viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full bg-card" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       {prims.map((p, i) => {
+        if (p.t === "image") return <image key={i} x={p.x} y={p.y} width={p.w} height={p.h} href={p.src} preserveAspectRatio="xMidYMid meet" />;
         if (p.t === "line") return <line key={i} x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} stroke={p.c} strokeWidth={p.w} strokeDasharray={p.dash?.join(" ")} />;
         if (p.t === "rect") return <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h} fill={p.fill ?? "none"} stroke={p.stroke ?? "none"} strokeWidth={p.sw ?? 0} />;
         if (p.t === "poly") return <polygon key={i} points={p.pts.map((q) => q.join(",")).join(" ")} fill={p.fill} />;

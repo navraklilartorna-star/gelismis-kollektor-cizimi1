@@ -24,6 +24,9 @@
 - Advanced projects use separate owner-scoped customer and project entities; a SECURITY INVOKER database RPC atomically saves the project and exact member set to prevent cross-project mixing and partial saves.
 - Keep projectTitle distinct from the hidden legacy name and propagate project identity across ordered local drafts.
 - Advanced branch axes accumulate independently on each side, with the first axis at the start allowance; branch numbering follows original layout order, top before bottom.
-- Render each collector on exactly one sheet: diagram on top, schedule below flowing into side-by-side blocks when long; end-positioned fittings extend the pipe while center fittings do not alter numbered axes.
+- Render each collector on exactly one diagram-only sheet; end-positioned fittings extend the pipe while center fittings do not alter numbered axes.
 - Persist optional main-end settings under the reserved mainEnds key in existing auxiliary_outlets JSON and unpack it separately from auxiliary fittings; this extends saves without schema changes or rewriting existing records.
+- Resolve independent end kinds through collector helpers with legacy fallbacks, preserving saved geometry and supporting all side combinations without changing legacy end enums.
+- Generate PNG in the browser from the same drawing primitives with embedded fonts and logo at four-times resolution; prepare files before user-triggered download/share to preserve mobile activation.
+- Use manifest-only home-screen metadata without a service worker because offline behavior is not requested.
 - Store optional fittings as a separate collector JSON field and use the shared production schedule for their placement and table values, so they never change numbered branch membership or axes.

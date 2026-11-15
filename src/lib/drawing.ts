@@ -1,4 +1,5 @@
-import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, MAIN_END_LABELS, manufacturingRows, normalizeProject, type Project, mainEndType, mainEndSetting, pipeDiameterMm, type MainEndType } from "./collector";
+import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm } from "./collector";
+import logo from "@/assets/navraklilar-logo.png.asset.json";
 
 export const W = 1000;
 export const H = 707;
@@ -6,6 +7,7 @@ export const H = 707;
 export type TextPart = { text: string; s: number; bold?: boolean } | { frac: [string, string]; s: number; bold?: boolean };
 
 export type Prim =
+  | { t: "image"; x: number; y: number; w: number; h: number; src: string }
   | { t: "line"; x1: number; y1: number; x2: number; y2: number; w: number; c: string; dash?: number[] }
   | { t: "rect"; x: number; y: number; w: number; h: number; fill?: string; stroke?: string; sw?: number }
   | { t: "poly"; pts: [number, number][]; fill: string }
@@ -44,22 +46,20 @@ function advancedDrawingPages(p: Project): Prim[][] {
   p = normalizeProject(p);
   const rows = manufacturingRows(p);
   const { total } = computeLayout(p);
-  const ends: MainEndType = mainEndType(p);
   const out: Prim[] = [
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
     { t: "text", x: 30, y: 40, s: Math.min(24, 550 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
-    { t: "text", x: 30, y: 64, s: 12, text: `${LAYOUT_LABELS[p.layout]} • ${MAIN_END_LABELS[ends]} • ${p.count} çıkış`, bold: true, c: INK },
-    { t: "text", x: 970, y: 36, s: 17, text: "NAVRAKLILAR TORNA", bold: true, c: INK, anchor: "end" },
-    { t: "text", x: 970, y: 54, s: 13, text: `Tarih: ${p.date} • cm / inç`, bold: true, c: INK, anchor: "end" },
-    { t: "text", x: 970, y: 78, s: 22, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "end" },
+    { t: "text", x: 30, y: 64, s: 12, text: `${LAYOUT_LABELS[p.layout]} • ${p.count} çıkış`, bold: true, c: INK },
+    { t: "image", x: 700, y: 20, w: 270, h: 90, src: logo.url },
+    { t: "text", x: 30, y: 88, s: 14, text: `Tarih: ${p.date} • cm / inç • ADET: ${p.quantity}`, bold: true, c: INK },
   ];
   const line = (x1: number, y1: number, x2: number, y2: number, c = INK, w = 1.5) => out.push({ t: "line", x1, y1, x2, y2, c, w });
   const text = (x: number, y: number, value: string, s = 14, c = INK, anchor: "start" | "middle" | "end" = "middle") => out.push({ t: "text", x, y, text: value, s, c, anchor, bold: true });
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*7,y-3.5],[x+dir*7,y+3.5]], fill: DIM });
   const longest = Math.max(1, ...rows.map(b => b.length));
-  const scale = 720 / Math.max(total, 1), lengthScale = Math.min(scale, 45 / longest);
+  const scale = 720 / Math.max(total, 1), lengthScale = 115 / longest;
   const maxDiameter = Math.max(pipeDiameterMm(p.mainSize), ...rows.map(b => pipeDiameterMm(b.size)), ...["left", "right"].map(side => pipeDiameterMm(mainEndSetting(p, side as "left" | "right").size)));
-  let diameterScale = 48 / maxDiameter;
+  let diameterScale = 70 / maxDiameter;
   for (const side of ["top", "bottom"] as const) {
     const sameSide = rows.filter(r => r.side === side).sort((a, b) => a.position - b.position);
     sameSide.slice(1).forEach((row, i) => {
@@ -69,7 +69,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
       diameterScale = Math.min(diameterScale, (row.position - previous.position) * scale * 1.4 / diameterSum);
     });
   }
-  const x0 = (W - total * scale) / 2, x1 = x0 + total * scale, ph = pipeDiameterMm(p.mainSize) * diameterScale, y = 225;
+  const x0 = (W - total * scale) / 2, x1 = x0 + total * scale, ph = pipeDiameterMm(p.mainSize) * diameterScale, y = 350;
   const pipe = (x: number, yy: number, w: number, h: number, vertical = false) => {
     out.push({ t: "rect", x, y: yy, w, h, fill: PIPE, stroke: INK, sw: 1.8 });
     const edge = Math.min(3, (vertical ? w : h) * 0.12);
@@ -89,24 +89,25 @@ function advancedDrawingPages(p: Project): Prim[][] {
     }
   };
   pipe(x0, y-ph/2, x1-x0, ph);
-  ends.split("-").forEach((kind,i) => {
-    const x = i === 0 ? x0 : x1, dir = i === 0 ? 1 : -1;
+  (["left", "right"] as const).forEach((side,i) => {
+    const kind = mainEndKind(p, side);
+    const x = i === 0 ? x0 : x1;
+    const setting = mainEndSetting(p, side);
+    const diameter = pipeDiameterMm(kind === "closed" || kind === "open" ? p.mainSize : setting.size) * diameterScale;
     if (kind === "closed") out.push({ t: "rect", x:x-3,y:y-ph/2-3,w:6,h:ph+6,fill:INK });
-    if (kind === "flanged") { out.push({ t:"rect",x:x-5,y:y-ph,w:10,h:ph*2,fill:PIPE,stroke:INK,sw:2 }); line(x-5,y-ph+8,x+5,y-ph+8); line(x-5,y+ph-8,x+5,y+ph-8); }
-    if (kind === "open") {
-      const setting = mainEndSetting(p, i === 0 ? "left" : "right");
-      const diameter = pipeDiameterMm(setting.size) * diameterScale;
+    if (kind === "flanged") { out.push({ t:"rect",x:x-5,y:y-diameter,w:10,h:diameter*2,fill:PIPE,stroke:INK,sw:2 }); line(x-5,y-diameter+8,x+5,y-diameter+8); line(x-5,y+diameter-8,x+5,y+diameter-8); }
+    if (kind === "male" || kind === "socket") {
       const length = 25, sx = i === 0 ? x - length : x;
       pipe(sx, y - diameter / 2, length, diameter);
-      if (setting.connection === "socket") {
+      if (kind === "socket") {
         pipe(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3);
         line(sx + 3, y - diameter * 0.65, sx + 3, y + diameter * 0.65, EDGE);
         line(sx + length - 3, y - diameter * 0.65, sx + length - 3, y + diameter * 0.65, EDGE);
       } else thread(sx, y - diameter / 2, length, diameter, false);
-      text(i === 0 ? x - 6 : x + 6, y - Math.max(ph, diameter) / 2 - 20, inchLabel(setting.size), 13, INK, i === 0 ? "end" : "start");
     }
-    const label = kind === "closed" ? "KAPALI" : kind === "flanged" ? "FLANŞLI" : mainEndSetting(p, i === 0 ? "left" : "right").connection === "socket" ? "MAŞONLU" : "DİŞLİ";
-    text(x, y + Math.max(ph / 2, 20) + 18, label, 11, INK, i === 0 ? "end" : "start");
+    if (kind !== "open" && kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 18, inchLabel(setting.size), 16, INK, i === 0 ? "end" : "start");
+    const label = kind === "closed" ? "KAPALI" : i === 0 ? "GİRİŞ" : "ÇIKIŞ";
+    text(x, y + Math.max(ph / 2, kind === "flanged" ? diameter : diameter * 0.65, 20) + 28, label, 19, INK, i === 0 ? "end" : "start");
   });
   let bottomEdge = y + ph/2;
   for (const side of ["top","bottom"] as const) {
@@ -114,9 +115,9 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const xs = sideRows.map(b => x0 + b.position*scale);
     const minGap = Math.min(999, ...xs.slice(1).map((x,i) => x - (xs[i] ?? 0)));
     const lanes = minGap >= 64 ? 1 : minGap >= 34 ? 2 : 3;
-    const fs = lanes === 3 ? 10 : lanes === 2 ? 12 : 14, lh = fs + 2, laneH = lh*2 + 4;
+    const fs = lanes === 3 ? 10 : lanes === 2 ? 13 : 17, lh = fs + 2, laneH = lh + 4;
     const dir = side === "top" ? -1 : 1, base = y + dir*ph/2;
-    const tipLimit = base + dir*45;
+    const tipLimit = base + dir*115;
     sideRows.forEach((b,index) => {
       const x = xs[index] ?? x0, tip = base + dir*b.length*lengthScale;
       const width = pipeDiameterMm(b.size) * diameterScale;
@@ -125,9 +126,10 @@ function advancedDrawingPages(p: Project): Prim[][] {
       out.push({t:"rect",x:x-width/2+1,y:base-2,w:Math.max(0,width-2),h:4,fill:PIPE});
       if (b.connection === "flanged") pipe(x-width,tip-3,width*2,6);
       else if (b.connection === "socket") {
-        const socketH = Math.min(14, Math.abs(tip-base));
-        const sy = side === "top" ? tip : tip - socketH;
+        const socketH = Math.min(30, Math.abs(tip-base));
+        const sy = side === "top" ? base - socketH : base;
         pipe(x-width*0.65,sy,width*1.3,socketH,true);
+        out.push({t:"rect",x:x-width*0.65+1,y:base-2,w:Math.max(0,width*1.3-2),h:4,fill:PIPE});
         line(x-width*0.65,sy+2,x+width*0.65,sy+2,EDGE,0.8);
         line(x-width*0.65,sy+socketH-2,x+width*0.65,sy+socketH-2,EDGE,0.8);
       } else {
@@ -136,12 +138,11 @@ function advancedDrawingPages(p: Project): Prim[][] {
       }
       const lane = index % lanes;
       const near = tipLimit + dir*(8 + lane*laneH);
-      const y1 = side === "top" ? near - lh : near + fs, y2 = side === "top" ? near : near + fs + lh;
-      line(x, tip + dir*(b.connection === "flanged" ? 3 : 0), x, side === "top" ? y2 + 3 : y1 - fs - 2, DIM, 0.6);
+      const y1 = side === "top" ? near : near + fs;
+      line(x, tip + dir*(b.connection === "flanged" ? 3 : 0), x, side === "top" ? y1 + 3 : y1 - fs - 2, INK, 0.6);
       const lx = Math.min(950, Math.max(50, x));
       text(lx, y1, `${b.id} ${inchLabel(b.size)}`, fs, side === "top" ? INK : INK);
-      text(lx, y2, `B${fmt(b.length)} A${fmt(b.axis)}`, fs, DIM);
-      if (side === "bottom") bottomEdge = Math.max(bottomEdge, y2 + 4);
+      if (side === "bottom") bottomEdge = Math.max(bottomEdge, y1 + 4);
     });
   }
   const mainLabel = `ANA BORU ${inchLabel(p.mainSize)}`;
@@ -153,30 +154,6 @@ function advancedDrawingPages(p: Project): Prim[][] {
   line(x0,totY,x1,totY,DIM,1.4);arrow(x0,totY,1);arrow(x1,totY,-1);
   out.push({t:"rect",x:430,y:totY-13,w:140,h:17,fill:"#ffffff"});
   text(500,totY+1,`TOPLAM ${fmt(total)} cm`,15,DIM);
-  // Manufacturing list: always one sheet; long lists flow into side-by-side blocks.
-  const top = totY + 26, bottomLimit = 648, header = 22;
-  out.push({t:"text",x:30,y:top,s:16,text:"ÇIKIŞ İMALAT LİSTESİ",bold:true,c:INK});
-  const avail = bottomLimit - (top + 8 + header);
-  const blocks = Math.min(3, Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor(avail / 20)))));
-  const per = Math.ceil(rows.length / blocks), rh = Math.min(22, avail / Math.max(1, per)), fs = Math.min(13, rh * 0.68);
-  const bw = 956 / blocks, cols = [0, 0.27, 0.46, 0.63, 0.8];
-  const heads = ["Çıkış","Çap (inç)","Boy (cm)","Aks (cm)","Bağlantı"];
-  for (let k = 0; k < blocks; k++) {
-    const items = rows.slice(k*per, (k+1)*per); if (!items.length) break;
-    const bx = 22 + k*bw, t0 = top + 8;
-    out.push({t:"rect",x:bx,y:t0,w:bw,h:header,fill:PIPE});
-    heads.forEach((v,i)=>out.push({t:"text",x:bx+6+(cols[i]??0)*bw,y:t0+15,s:Math.min(12, bw/heads.length/6.2),text:v,bold:true,c:INK}));
-    items.forEach((b,j)=>{
-      const yy = t0 + header + j*rh + rh*0.7;
-      const label = b.id === "B1" ? "B1 Boşaltma" : b.id === "M1" ? "M1 Manometre" : b.id;
-      [label,inchLabel(b.size),fmt(b.length),fmt(b.axis),b.connection === "flanged" ? "Flanşlı" : b.connection === "socket" ? "Maşonlu" : "Dişli"].forEach((v,i)=>out.push({t:"text",x:bx+6+(cols[i]??0)*bw,y:yy,s:Math.min(fs, bw/heads.length/(i===0?6:4.5)),text:v,bold:true,c:INK}));
-    });
-    const bottom = t0 + header + items.length*rh;
-    for (let j=0;j<=items.length;j++) out.push({t:"line",x1:bx,y1:t0+header+j*rh,x2:bx+bw,y2:t0+header+j*rh,w:0.5,c:INK});
-    out.push({t:"line",x1:bx,y1:t0,x2:bx+bw,y2:t0,w:0.5,c:INK});
-    [...cols.map(c=>bx+c*bw), bx+bw].forEach(x=>out.push({t:"line",x1:x,y1:t0,x2:x,y2:bottom,w:0.5,c:INK}));
-  }
-  out.push({t:"text",x:30,y:668,s:11,text:"B: boy, A: aks. İlk çıkışın aksı başlangıçtan, diğerleri aynı taraftaki önceki çıkıştan. B1/M1: uçtan; orta konumda soldan.",bold:true,c:INK});
   if (p.notes.trim()) out.push({t:"text",x:30,y:686,s:10,text:`Not: ${p.notes.replace(/\s+/g," ").slice(0,180)}`,bold:true,c:INK});
   return [out];
 }

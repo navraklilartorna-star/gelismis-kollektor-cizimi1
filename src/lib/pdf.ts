@@ -22,6 +22,25 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
   doc.registerFontkit(fontkit);
   const fR = await doc.embedFont(reg, { subset: true });
   const fB = await doc.embedFont(bold, { subset: true });
+  const images = new Map<string, Awaited<ReturnType<typeof doc.embedPng>>>();
+  for (const project of projects) for (const pr of buildDrawingPages(project).flat()) {
+    if (pr.t === "image" && !images.has(pr.src)) {
+      const response = await fetch(pr.src);
+      if (!response.ok) throw new Error("Logo yüklenemedi");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes[0] === 137 && bytes[1] === 80) images.set(pr.src, await doc.embedPng(bytes));
+      else {
+        const url = URL.createObjectURL(new Blob([bytes], { type: response.headers.get("content-type") ?? "image/webp" }));
+        try {
+          const image = new Image(); image.src = url; await image.decode();
+          const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+          const ctx = canvas.getContext("2d"); if (!ctx) throw new Error("Logo hazırlanamadı"); ctx.drawImage(image, 0, 0);
+          const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("Logo hazırlanamadı")), "image/png"));
+          images.set(pr.src, await doc.embedPng(await png.arrayBuffer()));
+        } finally { URL.revokeObjectURL(url); }
+      }
+    }
+  }
   const PW = 842, PH = 595, m = 20;
   const k = Math.min((PW - 2 * m) / W, (PH - 2 * m) / H);
   const ox = (PW - W * k) / 2, oy = (PH - H * k) / 2;
@@ -32,7 +51,10 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
   for (const primitives of buildDrawingPages(p)) {
   const page = doc.addPage([PW, PH]);
   for (const pr of primitives) {
-    if (pr.t === "line") {
+    if (pr.t === "image") {
+      const image = images.get(pr.src);
+      if (image) page.drawImage(image, { x: tx(pr.x), y: ty(pr.y + pr.h), width: pr.w * k, height: pr.h * k });
+    } else if (pr.t === "line") {
       page.drawLine({ start: { x: tx(pr.x1), y: ty(pr.y1) }, end: { x: tx(pr.x2), y: ty(pr.y2) }, thickness: pr.w * k, color: hex(pr.c), ...(pr.dash ? { dashArray: pr.dash.map((d) => d * k) } : {}) });
     } else if (pr.t === "rect") {
       page.drawRectangle({ x: tx(pr.x), y: ty(pr.y + pr.h), width: pr.w * k, height: pr.h * k, ...(pr.fill ? { color: hex(pr.fill) } : {}), ...(pr.stroke ? { borderColor: hex(pr.stroke) } : {}), borderWidth: pr.stroke ? (pr.sw ?? 1) * k : 0 });

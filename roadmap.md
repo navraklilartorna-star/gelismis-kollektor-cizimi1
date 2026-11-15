@@ -1,4 +1,9 @@
 # Requested changes
+- [x] Simplify and enlarge the sheet, correct socket junctions and add independent five-way pipe ends.
+- [x] Add the supplied logo, home-screen icons and high-resolution PNG/PDF delivery.
+- [x] Verify dimensions, saved-data compatibility, exports and mobile layout without modifying existing records.
+
+Second update QA: 70 tests passed, including all 25 end combinations and saved JSON round trips. Real browser PDF/PNG downloads passed with no page errors; PNG is 4000×2828 and PDF is one sheet. Viewed both exports and socket junctions. Corrected WebP logo embedding in PDF. Local browser checks supplied the original CDN asset bytes through request interception because the sandbox asset path returns HTML; hosted delivery and native phone share/icon behavior remain unverified. No existing cloud records were modified.
 - [x] Add independent open-end fittings, socket branches and expanded auxiliary positions without changing the database schema.
 - [x] Remove the general spacing and separate thread section while preserving legacy layout controls and measurements.
 - [x] Refresh proportional pipe rendering and verify save/reopen, mobile and single-sheet PDF.

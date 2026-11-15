@@ -39,7 +39,7 @@ describe("workshop optional outlets", () => {
     const p = { ...newProject(), count: 60, auxiliaryOutlets: { drain: defaultAuxiliaryOutlet("drain"), gauge: defaultAuxiliaryOutlet("gauge") } };
     const pages = buildDrawingPages(p);
     expect(pages).toHaveLength(1);
-    const rows = pages.flat().filter(v => v.t === "text" && v.c === "#111827" && /^(C\d+|B1 Boşaltma|M1 Manometre)$/.test(v.text));
+    const rows = manufacturingRows(p);
     expect(rows).toHaveLength(62);
   });
 });

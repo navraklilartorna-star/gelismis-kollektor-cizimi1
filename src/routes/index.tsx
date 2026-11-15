@@ -10,12 +10,13 @@ import { MainEndEditor } from "@/components/MainEndEditor";
 import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
 import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
+import logo from "@/assets/navraklilar-logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileText, Download, Folder, X } from "lucide-react";
 import {
   PIPE_SIZES, LAYOUT_LABELS, THREAD_LABELS, THREAD_HINTS, computeLayout, fmt, inchFlat, newProject, normalizeProject, validate,
-  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, MAIN_END_LABELS, type MainEndType, type Layout, type Project, type Thread,
+  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, type Layout, type Project, type Thread,
 } from "@/lib/collector";
 
 /** Default start length per layout: tek sıra 8 cm, karşılıklı 10 cm. */
@@ -81,7 +82,7 @@ function Index() {
   const [activeBatch, setActiveBatch] = useState<{ id: string; ids: string[] } | null>(null);
   const [drafts, setDrafts] = useState<Record<string, EditorDraft>>({});
   const saveLock = useRef(false);
-  const [pdf, setPdf] = useState<{ blob: Blob; url: string; name: string; deliver: (b: Blob, n: string) => Promise<void>; download: (b: Blob, n: string) => void } | null>(null);
+  const [pdf, setPdf] = useState<{ blob: Blob; url: string; name: string; format: "PDF" | "PNG"; deliver: (b: Blob, n: string) => Promise<void>; download: (b: Blob, n: string) => void } | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -217,17 +218,17 @@ function Index() {
     openProject(next ?? newProject(), next ? drafts[next.id] : undefined);
     setShowList(true);
   };
-  const createPdf = async (all = false) => {
+  const createPdf = async (all = false, format: "PDF" | "PNG" = "PDF") => {
     if (!ok) return flash("Önce hataları düzeltin");
     const items = all ? batch : [parsed];
     if (items.some((x) => validate(x).length > 0)) return flash("Müşterinin kollektörlerindeki hataları düzeltin");
     setBusy(true);
     try {
       const { makePdf, deliverFile, downloadBlob } = await import("@/lib/pdf");
-      const blob = await makePdf(items);
+      const blob = format === "PDF" ? await makePdf(items) : await (await import("@/lib/png")).makePng(parsed);
       const base = (parsed.customerName.trim() || "kollektor-cizim").replace(/[\\/:*?"<>|]+/g, "-");
-      setPdf({ blob, url: URL.createObjectURL(blob), name: `${base}.pdf`, deliver: deliverFile, download: downloadBlob });
-    } catch (e) { console.error(e); flash("PDF oluşturulamadı"); }
+      setPdf({ blob, url: URL.createObjectURL(blob), name: `${base}.${format.toLowerCase()}`, format, deliver: deliverFile, download: downloadBlob });
+    } catch (e) { console.error(e); flash(`${format} oluşturulamadı`); }
     finally { setBusy(false); }
   };
 
@@ -235,7 +236,7 @@ function Index() {
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-primary px-5 py-4 text-primary-foreground">
         <div>
-          <div className="font-mono text-xs tracking-[0.2em] text-accent">NAVRAKLILAR TORNA</div>
+          <img src={logo.url} alt="Navraklılar Torna" className="mb-2 h-auto w-60 max-w-full object-contain" />
           <h1 className="max-w-xl text-xl font-bold sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -275,7 +276,6 @@ function Index() {
           </div>
           <Group label="Çıkış düzeni"><Seg<Layout> value={p.layout} options={LAYOUT_LABELS} onChange={(layout) => { setP({ ...p, layout }); setNums((old) => ({ ...old, start: LAYOUT_START[layout] })); }} /></Group>
           <Field label="Kollektör tipi"><select className={`${inputCls} font-sans text-base`} value={p.thread} onChange={e => setP({ ...p, thread: e.target.value as Thread })}>{Object.entries(THREAD_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-          <Field label="Ana boru uçları"><select className={`${inputCls} font-sans text-base`} value={p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed")} onChange={e => setP({ ...p, mainEndType: e.target.value as MainEndType })}>{Object.entries(MAIN_END_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <MainEndEditor project={parsed} onChange={mainEnds => setP({ ...p, mainEnds })} />
           <BranchEditor project={parsed} onChange={branches => setP({ ...p, branches })} />
           <AuxiliaryOutletEditor project={parsed} onChange={auxiliaryOutlets => { setP({ ...p, auxiliaryOutlets }); setPdf(null); }} />
@@ -308,6 +308,7 @@ function Index() {
         <section className="overflow-x-auto border border-border bg-card">
           <div className="min-w-[640px]">{ok && <Drawing project={parsed} />}</div>
         </section>
+        <Button variant="outline" onClick={() => createPdf(false, "PNG")} disabled={busy || !ok} className="h-12 w-full"><Download />PNG resim olarak indir</Button>
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-20 flex gap-3 border-t border-border bg-background/95 p-4 backdrop-blur">
@@ -320,13 +321,13 @@ function Index() {
       {pdf && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-foreground/50 p-4 sm:items-center" onClick={() => setPdf(null)}>
           <div className="w-full max-w-sm space-y-3 rounded-2xl bg-card p-5" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold">PDF hazır</h2>
+            <h2 className="text-lg font-bold">{pdf.format} hazır</h2>
             <p className="break-all text-sm text-muted-foreground">{pdf.name}</p>
             <Button asChild className="h-auto w-full rounded-xl bg-accent py-4 text-lg font-bold text-accent-foreground">
-              <a href={pdf.url} target="_blank" rel="noopener noreferrer"><FileText />PDF’yi Aç</a>
+              <a href={pdf.url} target="_blank" rel="noopener noreferrer"><FileText />{pdf.format === "PDF" ? "PDF’yi Aç" : "Resmi Aç"}</a>
             </Button>
-            <Button variant="outline" onClick={() => pdf.download(pdf.blob, pdf.name)} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />PDF’yi İndir</Button>
-            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name)} className="h-auto w-full rounded-xl py-3 font-semibold">Paylaş / Kaydet</Button>
+            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF olarak indir" : "PNG resim olarak indir"}</Button>
+            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold">Paylaş / Kaydet</Button>
              <Button variant="outline" onClick={() => setPdf(null)} className="h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>

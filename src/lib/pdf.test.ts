@@ -10,9 +10,9 @@ describe("customer PDF", () => {
   it("creates a diagram and paginated manufacturing list for each collector in one PDF", async () => {
     vi.stubGlobal("Blob", NodeBlob);
     vi.stubGlobal("fetch", async (url: string) => ({ arrayBuffer: async () => {
-      const bytes = await readFile(`public${url}`);
+      const bytes = await readFile(url.startsWith("/__l5e/") ? "public/icon-512.png" : `public${url}`);
       return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    } }));
+    }, ok: true }));
     try {
       const first = { ...newProject(), customerName: "Ahmet Bey", name: "Sera 1", notes: "Kaynaklar kontrol edilecek." };
       const second = { ...newProject(), customerName: "Ahmet Bey", name: "Sera 2", count: 9 };

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { newProject, branchSettings, computeLayout, savedBatches, validate, MAIN_END_LABELS, PIPE_SIZES } from "./collector";
+import { newProject, branchSettings, computeLayout, savedBatches, validate, MAIN_END_LABELS, PIPE_SIZES, manufacturingRows } from "./collector";
 import { buildDrawingPages } from "./drawing";
 import { projectRow, rowProject, saveManufacturingProject } from "./cloud-projects";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,8 +37,7 @@ describe("advanced manufacturing rules", () => {
     const p={...newProject(),count:60,mainEndType:"flanged-flanged" as const};
     const pages=buildDrawingPages(p);
     expect(pages).toHaveLength(1);
-    const labels=pages.flat().filter(v=>v.t==="text" && /^C\d+$/.test(v.text) && v.c === "#111827");
-    expect(labels).toHaveLength(60);
+    expect(manufacturingRows(p)).toHaveLength(60);
   });
   it("saves the exact project membership atomically with one RPC", async () => {
     const p={...newProject(),batchId:"batch-a",projectTitle:"Kazan"};

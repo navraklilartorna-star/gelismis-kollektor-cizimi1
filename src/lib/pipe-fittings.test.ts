@@ -1,9 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { newProject, branchSettings, computeLayout, manufacturingRows, validate, pipeDiameterMm, type Project } from "./collector";
+import { newProject, branchSettings, computeLayout, manufacturingRows, validate, pipeDiameterMm, mainEndKind, END_LABELS, type EndKind, type Project } from "./collector";
 import { projectRow, rowProject } from "./cloud-projects";
 import { buildDrawingPages } from "./drawing";
 
 describe("pipe fitting updates", () => {
+  it.each(Object.keys(END_LABELS) as EndKind[])("round trips independent %s ends without changing the branch axes", left => {
+    for (const right of Object.keys(END_LABELS) as EndKind[]) {
+      const p: Project = { ...newProject(), customerName: "Atölye", mainEnds: { left: { kind: left, size: "1/2", connection: "male" }, right: { kind: right, size: "6", connection: "socket" } } };
+      const restored = rowProject(projectRow(p, "owner"));
+      expect(mainEndKind(restored, "left")).toBe(left);
+      expect(mainEndKind(restored, "right")).toBe(right);
+      expect(restored.mainEnds?.left?.size).toBe("1/2");
+      expect(restored.mainEnds?.right?.size).toBe("6");
+      expect(computeLayout(restored).total).toBe(34);
+      expect(manufacturingRows(restored).map(r => r.position)).toEqual([10, 10, 30, 30]);
+      expect(validate(restored)).toEqual([]);
+    }
+  });
+  it("resolves legacy sockets and flanges without rewriting the record", () => {
+    const p: Project = { ...newProject(), mainEndType: "open-flanged", mainEnds: { left: { size: "1", connection: "socket" } } };
+    expect(mainEndKind(p, "left")).toBe("socket");
+    expect(mainEndKind(p, "right")).toBe("flanged");
+    expect(p.mainEnds?.left?.kind).toBeUndefined();
+  });
   it("round trips independent open-end diameters and connections without changing dimensions", () => {
     const p: Project = { ...newProject(), customerName: "Atölye", mainEndType: "open-open", mainEnds: { left: { size: "1/2", connection: "socket" }, right: { size: "6", connection: "male" } } };
     expect(rowProject(projectRow(p, "owner"))).toEqual(p);
