@@ -11,7 +11,7 @@ export function BranchEditor({ project, onChange }: { project: Project; onChange
       <label className="min-w-0 text-sm">Çap (inç)<select aria-label={`C${i + 1} çap`} className={control} value={b.size} onChange={e => change(i, { size: e.target.value })}>{PIPE_SIZES.map(s => <option key={s} value={s}>{inchFlat(s)}″</option>)}</select></label>
       <label className="min-w-0 text-sm">Boy (cm)<input aria-label={`C${i + 1} boy`} type="number" min="0.1" step="any" className={control} value={Number.isNaN(b.length) ? "" : b.length} onFocus={e => e.target.select()} onChange={e => change(i, { length: e.target.value === "" ? NaN : Number(e.target.value) })} /></label>
       <label className="min-w-0 text-sm">Aks aralığı (cm)<input aria-label={`C${i + 1} aks aralığı`} type="number" min="0.1" step="any" className={control} value={Number.isNaN(b.spacing) ? "" : b.spacing} onFocus={e => e.target.select()} onChange={e => change(i, { spacing: e.target.value === "" ? NaN : Number(e.target.value) })} /></label>
-      <label className="min-w-0 text-sm">Bağlantı<select aria-label={`C${i + 1} bağlantı`} className={control} value={b.connection} onChange={e => change(i, { connection: e.target.value as Branch["connection"] })}><option value="male">Dişli / Erkek</option><option value="flanged">Flanşlı</option></select></label>
+      <label className="min-w-0 text-sm">Bağlantı<select aria-label={`C${i + 1} bağlantı`} className={control} value={b.connection} onChange={e => change(i, { connection: e.target.value as Branch["connection"] })}><option value="male">Dişli / Erkek</option><option value="socket">Maşonlu</option><option value="flanged">Flanşlı</option></select></label>
     </fieldset>)}</div>
   </section>;
 }

@@ -104,11 +104,11 @@ describe("collector editor actions", () => {
     editor();
     fireEvent.click(screen.getByRole("button", { name: "+ Kollektör Ekle" }));
     await screen.findByRole("button", { name: "Kollektör 2 iptal et" });
-    fireEvent.change(screen.getByLabelText("Çıkışlar arası (cm)"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Başlangıç uzunluğu (cm)"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 1 ·/ }));
-    expect(screen.getByLabelText("Çıkışlar arası (cm)")).toHaveValue("20");
+    expect(screen.getByLabelText("Başlangıç uzunluğu (cm)")).toHaveValue("10");
     fireEvent.click(screen.getByRole("button", { name: /Kollektör 2 ·/ }));
-    expect(screen.getByLabelText("Çıkışlar arası (cm)")).toHaveValue("");
+    expect(screen.getByLabelText("Başlangıç uzunluğu (cm)")).toHaveValue("");
     expect(saveManufacturingProject).not.toHaveBeenCalled();
     expect(deleteCloudProject).not.toHaveBeenCalled();
   });

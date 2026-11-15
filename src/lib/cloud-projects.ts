@@ -12,10 +12,12 @@ export function projectRow(project: Project, userId: string): Row {
     thread: p.thread, production_date: p.date, quantity: p.quantity, updated_at: p.updatedAt,
     batch_id: p.batchId ?? null, batch_saved_at: p.batchSavedAt ?? null, batch_position: p.batchPosition ?? 0,
     manufacturing_project_id: p.projectId ?? null, project_title: p.projectTitle ?? "", main_end_type: p.mainEndType ?? null, branches: p.branches ? JSON.parse(JSON.stringify(p.branches)) : null,
-    auxiliary_outlets: p.auxiliaryOutlets ? JSON.parse(JSON.stringify(p.auxiliaryOutlets)) : null };
+    auxiliary_outlets: p.auxiliaryOutlets || p.mainEnds ? JSON.parse(JSON.stringify({ ...p.auxiliaryOutlets, ...(p.mainEnds ? { mainEnds: p.mainEnds } : {}) })) : null };
 }
 
 export function rowProject(row: Row): Project {
+  const stored = row.auxiliary_outlets && typeof row.auxiliary_outlets === "object" && !Array.isArray(row.auxiliary_outlets) ? row.auxiliary_outlets : {};
+  const { mainEnds, ...auxiliaryOutlets } = stored;
   if (!["tek", "karsilikli", "capraz"].includes(row.layout) || !["acik", "kapali", "cift"].includes(row.thread)) throw new Error("Kayıtlı kollektörün bağlantı bilgileri geçersiz.");
   return normalizeProject({ id: row.id, customerName: row.customer_name, name: row.name,
     notes: row.notes, mainSize: row.main_size, outSize: row.out_size, count: row.outlet_count,
@@ -27,7 +29,8 @@ export function rowProject(row: Row): Project {
     ...(row.project_title ? { projectTitle: row.project_title } : {}),
     ...(row.main_end_type ? { mainEndType: row.main_end_type as Project["mainEndType"] } : {}),
     ...(Array.isArray(row.branches) ? { branches: row.branches as unknown as Project["branches"] } : {}),
-    ...(row.auxiliary_outlets && typeof row.auxiliary_outlets === "object" && !Array.isArray(row.auxiliary_outlets) ? { auxiliaryOutlets: row.auxiliary_outlets as unknown as Project["auxiliaryOutlets"] } : {}) });
+    ...(mainEnds && typeof mainEnds === "object" && !Array.isArray(mainEnds) ? { mainEnds: mainEnds as unknown as Project["mainEnds"] } : {}),
+    ...(Object.keys(auxiliaryOutlets).length ? { auxiliaryOutlets: auxiliaryOutlets as unknown as Project["auxiliaryOutlets"] } : {}) });
 }
 
 /** Customer, project, members and removals commit together under the caller's RLS. */

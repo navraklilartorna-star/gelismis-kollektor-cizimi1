@@ -1,4 +1,4 @@
-import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, MAIN_END_LABELS, manufacturingRows, normalizeProject, type Project, type MainEndType } from "./collector";
+import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, MAIN_END_LABELS, manufacturingRows, normalizeProject, type Project, mainEndType, mainEndSetting, pipeDiameterMm, type MainEndType } from "./collector";
 
 export const W = 1000;
 export const H = 707;
@@ -27,8 +27,10 @@ export const inchLabel = (size: string) => `${inchFlat(size)} ″`;
 
 const INK = "#111827";
 const DIM = "#1d4ed8";
-const THREAD = "#c2410c";
-const PIPE = "#eef0f3";
+const THREAD = INK;
+const PIPE = "#ffffff";
+const METAL = "#c5cbd1";
+const EDGE = "#65717b";
 
 export function buildDrawing(p: Project): Prim[] {
   return advancedDrawingPages(p)[0] ?? [];
@@ -42,11 +44,11 @@ function advancedDrawingPages(p: Project): Prim[][] {
   p = normalizeProject(p);
   const rows = manufacturingRows(p);
   const { total } = computeLayout(p);
-  const ends: MainEndType = p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed");
+  const ends: MainEndType = mainEndType(p);
   const out: Prim[] = [
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
     { t: "text", x: 30, y: 40, s: Math.min(24, 550 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
-    { t: "text", x: 30, y: 64, s: 14, text: `${LAYOUT_LABELS[p.layout]} • ${MAIN_END_LABELS[ends]} • ${p.count} çıkış`, bold: true, c: INK },
+    { t: "text", x: 30, y: 64, s: 12, text: `${LAYOUT_LABELS[p.layout]} • ${MAIN_END_LABELS[ends]} • ${p.count} çıkış`, bold: true, c: INK },
     { t: "text", x: 970, y: 36, s: 17, text: "NAVRAKLILAR TORNA", bold: true, c: INK, anchor: "end" },
     { t: "text", x: 970, y: 54, s: 13, text: `Tarih: ${p.date} • cm / inç`, bold: true, c: INK, anchor: "end" },
     { t: "text", x: 970, y: 78, s: 22, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "end" },
@@ -56,15 +58,55 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*7,y-3.5],[x+dir*7,y+3.5]], fill: DIM });
   const longest = Math.max(1, ...rows.map(b => b.length));
   const scale = 720 / Math.max(total, 1), lengthScale = Math.min(scale, 45 / longest);
-  const x0 = (W - total * scale) / 2, x1 = x0 + total * scale, ph = 30, y = 205;
-  out.push({ t: "rect", x: x0, y: y-ph/2, w: x1-x0, h: ph, fill: PIPE, stroke: INK, sw: 2.2 });
+  const maxDiameter = Math.max(pipeDiameterMm(p.mainSize), ...rows.map(b => pipeDiameterMm(b.size)), ...["left", "right"].map(side => pipeDiameterMm(mainEndSetting(p, side as "left" | "right").size)));
+  let diameterScale = 48 / maxDiameter;
+  for (const side of ["top", "bottom"] as const) {
+    const sameSide = rows.filter(r => r.side === side).sort((a, b) => a.position - b.position);
+    sameSide.slice(1).forEach((row, i) => {
+      const previous = sameSide[i];
+      if (!previous || row.position <= previous.position) return;
+      const diameterSum = pipeDiameterMm(row.size) + pipeDiameterMm(previous.size);
+      diameterScale = Math.min(diameterScale, (row.position - previous.position) * scale * 1.4 / diameterSum);
+    });
+  }
+  const x0 = (W - total * scale) / 2, x1 = x0 + total * scale, ph = pipeDiameterMm(p.mainSize) * diameterScale, y = 225;
+  const pipe = (x: number, yy: number, w: number, h: number, vertical = false) => {
+    out.push({ t: "rect", x, y: yy, w, h, fill: PIPE, stroke: INK, sw: 1.8 });
+    const edge = Math.min(3, (vertical ? w : h) * 0.12);
+    if (vertical) {
+      out.push({ t: "rect", x: x + 1, y: yy + 1, w: edge, h: Math.max(0, h - 2), fill: METAL });
+      line(x + w - edge, yy + 1, x + w - edge, yy + h - 1, EDGE, 0.6);
+    } else {
+      out.push({ t: "rect", x: x + 1, y: yy + h - edge - 1, w: Math.max(0, w - 2), h: edge, fill: METAL });
+      line(x + 1, yy + 3, x + w - 1, yy + 3, EDGE, 0.6);
+    }
+  };
+  const thread = (x: number, yy: number, w: number, h: number, vertical: boolean) => {
+    const span = vertical ? h : w;
+    for (let k = 1; k < span; k += 2.4) {
+      if (vertical) line(x, yy + k, x + w, yy + Math.min(span, k + 0.8), THREAD, 0.85);
+      else line(x + k, yy, x + Math.min(span, k + 0.8), yy + h, THREAD, 0.85);
+    }
+  };
+  pipe(x0, y-ph/2, x1-x0, ph);
   ends.split("-").forEach((kind,i) => {
     const x = i === 0 ? x0 : x1, dir = i === 0 ? 1 : -1;
     if (kind === "closed") out.push({ t: "rect", x:x-3,y:y-ph/2-3,w:6,h:ph+6,fill:INK });
     if (kind === "flanged") { out.push({ t:"rect",x:x-5,y:y-ph,w:10,h:ph*2,fill:PIPE,stroke:INK,sw:2 }); line(x-5,y-ph+8,x+5,y-ph+8); line(x-5,y+ph-8,x+5,y+ph-8); }
-    if (kind === "open") for (let k = 3; k <= 21; k += 4) line(x+dir*k, y-ph/2, x+dir*(k+4), y+ph/2, THREAD, 1.4);
-    const label = kind === "closed" ? "KAPALI" : kind === "flanged" ? "FLANŞLI" : "AÇIK (DİŞLİ)";
-    text(x - dir*(kind === "flanged" ? 10 : 6), y+5, label, 12, INK, i === 0 ? "end" : "start");
+    if (kind === "open") {
+      const setting = mainEndSetting(p, i === 0 ? "left" : "right");
+      const diameter = pipeDiameterMm(setting.size) * diameterScale;
+      const length = 25, sx = i === 0 ? x - length : x;
+      pipe(sx, y - diameter / 2, length, diameter);
+      if (setting.connection === "socket") {
+        pipe(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3);
+        line(sx + 3, y - diameter * 0.65, sx + 3, y + diameter * 0.65, EDGE);
+        line(sx + length - 3, y - diameter * 0.65, sx + length - 3, y + diameter * 0.65, EDGE);
+      } else thread(sx, y - diameter / 2, length, diameter, false);
+      text(i === 0 ? x - 6 : x + 6, y - Math.max(ph, diameter) / 2 - 20, inchLabel(setting.size), 13, INK, i === 0 ? "end" : "start");
+    }
+    const label = kind === "closed" ? "KAPALI" : kind === "flanged" ? "FLANŞLI" : mainEndSetting(p, i === 0 ? "left" : "right").connection === "socket" ? "MAŞONLU" : "DİŞLİ";
+    text(x, y + Math.max(ph / 2, 20) + 18, label, 11, INK, i === 0 ? "end" : "start");
   });
   let bottomEdge = y + ph/2;
   for (const side of ["top","bottom"] as const) {
@@ -77,11 +119,21 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const tipLimit = base + dir*45;
     sideRows.forEach((b,index) => {
       const x = xs[index] ?? x0, tip = base + dir*b.length*lengthScale;
-      const size = b.size.split(" ").reduce((sum,part) => {const [a,d]=part.split("/").map(Number);return sum+(a??0)/(d??1);},0);
-      const width = Math.max(5,Math.min(22,size*8));
-      out.push({t:"rect",x:x-width/2,y:Math.min(base,tip),w:width,h:Math.abs(tip-base),fill:PIPE,stroke:INK,sw:1.6});
-      if (b.connection === "flanged") out.push({t:"rect",x:x-width,y:tip-3,w:width*2,h:6,fill:PIPE,stroke:INK,sw:1.6});
-      else for(let k=2;k<Math.min(12,b.length*lengthScale);k+=4) line(x-width/2,tip-dir*k,x+width/2,tip-dir*(k+2),THREAD,1.2);
+      const width = pipeDiameterMm(b.size) * diameterScale;
+      pipe(x-width/2, Math.min(base,tip), width, Math.abs(tip-base), true);
+      // A white weld collar removes the seam at the branch/main junction.
+      out.push({t:"rect",x:x-width/2+1,y:base-2,w:Math.max(0,width-2),h:4,fill:PIPE});
+      if (b.connection === "flanged") pipe(x-width,tip-3,width*2,6);
+      else if (b.connection === "socket") {
+        const socketH = Math.min(14, Math.abs(tip-base));
+        const sy = side === "top" ? tip : tip - socketH;
+        pipe(x-width*0.65,sy,width*1.3,socketH,true);
+        line(x-width*0.65,sy+2,x+width*0.65,sy+2,EDGE,0.8);
+        line(x-width*0.65,sy+socketH-2,x+width*0.65,sy+socketH-2,EDGE,0.8);
+      } else {
+        const threadH = Math.min(14,Math.abs(tip-base));
+        thread(x-width/2, side === "top" ? tip : tip-threadH, width, threadH, true);
+      }
       const lane = index % lanes;
       const near = tipLimit + dir*(8 + lane*laneH);
       const y1 = side === "top" ? near - lh : near + fs, y2 = side === "top" ? near : near + fs + lh;
@@ -105,7 +157,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const top = totY + 26, bottomLimit = 648, header = 22;
   out.push({t:"text",x:30,y:top,s:16,text:"ÇIKIŞ İMALAT LİSTESİ",bold:true,c:INK});
   const avail = bottomLimit - (top + 8 + header);
-  const blocks = Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor(avail / 20))));
+  const blocks = Math.min(3, Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor(avail / 20)))));
   const per = Math.ceil(rows.length / blocks), rh = Math.min(22, avail / Math.max(1, per)), fs = Math.min(13, rh * 0.68);
   const bw = 956 / blocks, cols = [0, 0.27, 0.46, 0.63, 0.8];
   const heads = ["Çıkış","Çap (inç)","Boy (cm)","Aks (cm)","Bağlantı"];
@@ -117,14 +169,14 @@ function advancedDrawingPages(p: Project): Prim[][] {
     items.forEach((b,j)=>{
       const yy = t0 + header + j*rh + rh*0.7;
       const label = b.id === "B1" ? "B1 Boşaltma" : b.id === "M1" ? "M1 Manometre" : b.id;
-      [label,inchLabel(b.size),fmt(b.length),fmt(b.axis),b.connection === "flanged" ? "Flanşlı" : "Dişli"].forEach((v,i)=>out.push({t:"text",x:bx+6+(cols[i]??0)*bw,y:yy,s:Math.min(fs, bw/heads.length/(i===0?6:4.5)),text:v,bold:true,c:INK}));
+      [label,inchLabel(b.size),fmt(b.length),fmt(b.axis),b.connection === "flanged" ? "Flanşlı" : b.connection === "socket" ? "Maşonlu" : "Dişli"].forEach((v,i)=>out.push({t:"text",x:bx+6+(cols[i]??0)*bw,y:yy,s:Math.min(fs, bw/heads.length/(i===0?6:4.5)),text:v,bold:true,c:INK}));
     });
     const bottom = t0 + header + items.length*rh;
     for (let j=0;j<=items.length;j++) out.push({t:"line",x1:bx,y1:t0+header+j*rh,x2:bx+bw,y2:t0+header+j*rh,w:0.5,c:INK});
     out.push({t:"line",x1:bx,y1:t0,x2:bx+bw,y2:t0,w:0.5,c:INK});
     [...cols.map(c=>bx+c*bw), bx+bw].forEach(x=>out.push({t:"line",x1:x,y1:t0,x2:x,y2:bottom,w:0.5,c:INK}));
   }
-  out.push({t:"text",x:30,y:668,s:11,text:"B: boy, A: aks. İlk çıkışın aksı başlangıçtan, diğerleri aynı taraftaki önceki çıkıştan. B1/M1: seçilen uçtan.",bold:true,c:INK});
+  out.push({t:"text",x:30,y:668,s:11,text:"B: boy, A: aks. İlk çıkışın aksı başlangıçtan, diğerleri aynı taraftaki önceki çıkıştan. B1/M1: uçtan; orta konumda soldan.",bold:true,c:INK});
   if (p.notes.trim()) out.push({t:"text",x:30,y:686,s:10,text:`Not: ${p.notes.replace(/\s+/g," ").slice(0,180)}`,bold:true,c:INK});
   return [out];
 }

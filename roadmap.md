@@ -1,4 +1,7 @@
 # Requested changes
+- [x] Add independent open-end fittings, socket branches and expanded auxiliary positions without changing the database schema.
+- [x] Remove the general spacing and separate thread section while preserving legacy layout controls and measurements.
+- [x] Refresh proportional pipe rendering and verify save/reopen, mobile and single-sheet PDF.
 - [x] Put the technical diagram above the manufacturing schedule in screen and PDF sheets.
 - [x] Add optional left/right bottom drain and fixed half-inch top gauge fittings, preserving cloud saves and old geometry.
 - [x] Verify fitting save/reopen, dimensions, pagination and PDF visually and with tests.

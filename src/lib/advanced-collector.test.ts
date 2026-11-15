@@ -8,8 +8,8 @@ describe("advanced manufacturing rules", () => {
   it("offers main pipe diameters from half an inch through six inches", () => {
     expect(PIPE_SIZES[0]).toBe("1/2"); expect(PIPE_SIZES.at(-1)).toBe("6");
   });
-  it("supports exactly the five requested main end combinations", () => {
-    expect(Object.keys(MAIN_END_LABELS)).toEqual(["open-open", "closed-closed", "open-closed", "closed-flanged", "flanged-flanged"]);
+  it("supports exactly the six requested main end combinations", () => {
+    expect(Object.keys(MAIN_END_LABELS)).toEqual(["open-open", "closed-closed", "open-closed", "closed-flanged", "flanged-flanged", "open-flanged"]);
   });
   it("keeps per-branch size length spacing and connection through cloud serialization", () => {
     const p = { ...newProject(), customerName: "Ahmet", projectId: "project-a", projectTitle: "Kazan", mainEndType: "closed-flanged" as const };

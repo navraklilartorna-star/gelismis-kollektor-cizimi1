@@ -6,6 +6,7 @@ import { AccountDialog } from "@/components/AccountDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject } from "@/lib/cloud-projects";
 import { BranchEditor } from "@/components/BranchEditor";
+import { MainEndEditor } from "@/components/MainEndEditor";
 import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
 import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
@@ -266,15 +267,16 @@ function Index() {
                 {PIPE_SIZES.map((s) => <option key={s} value={s}>{inchFlat(s)}″</option>)}
               </select>
             </Field>
-            {([["count", "Çıkış sayısı", "numeric"], ["spacing", "Çıkışlar arası (cm)", "decimal"], ["start", "Başlangıç uzunluğu (cm)", "decimal"], ["end", p.thread === "cift" ? "Son uç uzunluğu (cm)" : "Kapalı uzunluk (cm)", "decimal"]] as const).map(([k, l, m]) => (
+            {([["count", "Çıkış sayısı", "numeric"], ["start", "Başlangıç uzunluğu (cm)", "decimal"], ["end", p.thread === "cift" ? "Son uç uzunluğu (cm)" : "Kapalı uzunluk (cm)", "decimal"]] as const).map(([k, l, m]) => (
               <Field key={k} label={l}>
                 <input className={inputCls} inputMode={m} value={nums[k]} onFocus={selectAll} onChange={(e) => setNums({ ...nums, [k]: e.target.value })} />
               </Field>
             ))}
           </div>
           <Group label="Çıkış düzeni"><Seg<Layout> value={p.layout} options={LAYOUT_LABELS} onChange={(layout) => { setP({ ...p, layout }); setNums((old) => ({ ...old, start: LAYOUT_START[layout] })); }} /></Group>
-          <Group label="Dişli bağlantı tipi"><Seg<Thread> value={p.thread} options={THREAD_LABELS} onChange={(thread) => setP({ ...p, thread })} /></Group>
+          <Field label="Kollektör tipi"><select className={`${inputCls} font-sans text-base`} value={p.thread} onChange={e => setP({ ...p, thread: e.target.value as Thread })}>{Object.entries(THREAD_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="Ana boru uçları"><select className={`${inputCls} font-sans text-base`} value={p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed")} onChange={e => setP({ ...p, mainEndType: e.target.value as MainEndType })}>{Object.entries(MAIN_END_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+          <MainEndEditor project={parsed} onChange={mainEnds => setP({ ...p, mainEnds })} />
           <BranchEditor project={parsed} onChange={branches => setP({ ...p, branches })} />
           <AuxiliaryOutletEditor project={parsed} onChange={auxiliaryOutlets => { setP({ ...p, auxiliaryOutlets }); setPdf(null); }} />
           <Field label="Üretim notu">

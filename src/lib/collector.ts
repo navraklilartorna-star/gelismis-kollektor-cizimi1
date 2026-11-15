@@ -2,10 +2,15 @@ export const PIPE_SIZES = ["1/2", "3/4", "1", "1 1/4", "1 1/2", "2", "2 1/2", "3
 
 export type Layout = "tek" | "karsilikli" | "capraz";
 export type Thread = "acik" | "kapali" | "cift";
-export type MainEndType = "open-open" | "closed-closed" | "open-closed" | "closed-flanged" | "flanged-flanged";
-export const MAIN_END_LABELS: Record<MainEndType, string> = { "open-open": "İki Tarafı Açık", "closed-closed": "İki Tarafı Kapalı", "open-closed": "Bir Tarafı Açık Bir Tarafı Kapalı", "closed-flanged": "Bir Tarafı Kapalı Bir Tarafı Flanşlı", "flanged-flanged": "İki Tarafı Flanşlı" };
-export interface Branch { size: string; length: number; spacing: number; connection: "male" | "flanged" }
-export interface AuxiliaryOutlet { position: "left" | "right"; size: string; length: number; offset: number }
+export type MainEndType = "open-open" | "closed-closed" | "open-closed" | "closed-flanged" | "flanged-flanged" | "open-flanged";
+export const MAIN_END_LABELS: Record<MainEndType, string> = { "open-open": "İki Tarafı Açık", "closed-closed": "İki Tarafı Kapalı", "open-closed": "Bir Tarafı Açık Bir Tarafı Kapalı", "closed-flanged": "Bir Tarafı Kapalı Bir Tarafı Flanşlı", "flanged-flanged": "İki Tarafı Flanşlı", "open-flanged": "Bir Tarafı Açık Bir Tarafı Flanşlı" };
+export interface MainEndSetting { size: string; connection: "male" | "socket" }
+export type MainEnds = { left?: MainEndSetting; right?: MainEndSetting };
+export const mainEndType = (p: Project): MainEndType => p.mainEndType ?? (p.thread === "cift" ? "open-open" : "open-closed");
+export const mainEndSetting = (p: Project, side: "left" | "right"): MainEndSetting => p.mainEnds?.[side] ?? { size: p.mainSize, connection: "male" };
+export const pipeDiameterMm = (size: string): number => ({ "1/2": 21.3, "3/4": 26.9, "1": 33.7, "1 1/4": 42.4, "1 1/2": 48.3, "2": 60.3, "2 1/2": 76.1, "3": 88.9, "4": 114.3, "5": 139.7, "6": 168.3 }[size] ?? 60.3);
+export interface Branch { size: string; length: number; spacing: number; connection: "male" | "flanged" | "socket" }
+export interface AuxiliaryOutlet { position: "left" | "right" | "center-top" | "center-bottom" | "bottom-left" | "bottom-right"; size: string; length: number; offset: number }
 export type AuxiliaryOutlets = { drain?: AuxiliaryOutlet; gauge?: AuxiliaryOutlet };
 export function defaultAuxiliaryOutlet(kind: "drain" | "gauge"): AuxiliaryOutlet {
   return { position: "right", size: kind === "gauge" ? "1/2" : "3/4", length: 5, offset: 2 };
@@ -44,6 +49,7 @@ export interface Project {
   projectId?: string | undefined;
   projectTitle?: string | undefined;
   mainEndType?: MainEndType | undefined;
+  mainEnds?: MainEnds | undefined;
   branches?: Branch[] | undefined;
   auxiliaryOutlets?: AuxiliaryOutlets | undefined;
 }
@@ -158,7 +164,7 @@ export function computeLayout(p: Pick<Project, "count" | "spacing" | "start" | "
   const extent = p.branches ? Math.max(0, ...outlets.map((o) => o.pos)) : (positions - 1) * s;
   // End fittings sit outside the numbered outlets: left ones before C1, right ones after the last outlet.
   const aux = Object.values(p.auxiliaryOutlets ?? {}).filter((o): o is AuxiliaryOutlet => Boolean(o));
-  const extra = (side: "left" | "right") => Math.max(0, ...aux.filter(o => o.position === side).map(o => Number.isFinite(o.offset) ? o.offset : 0));
+  const extra = (side: "left" | "right") => Math.max(0, ...aux.filter(o => o.position === side || o.position === `bottom-${side}`).map(o => Number.isFinite(o.offset) ? o.offset : 0));
   const leftExtra = extra("left"), rightExtra = extra("right");
   const total = leftExtra + p.start + extent + p.end + rightExtra;
   return { outlets, positions, leftExtra, total: Math.round(total * 100) / 100 };
@@ -168,12 +174,18 @@ export function validate(p: Project): string[] {
   const e: string[] = [];
   for (const [kind, outlet] of Object.entries(p.auxiliaryOutlets ?? {})) {
     if (!outlet) continue;
-    if (!["left", "right"].includes(outlet.position) || !PIPE_SIZES.includes(outlet.size as typeof PIPE_SIZES[number]) || (kind === "gauge" && outlet.size !== "1/2") || !Number.isFinite(outlet.length) || outlet.length <= 0 || !Number.isFinite(outlet.offset) || outlet.offset <= 0 || outlet.offset >= computeLayout(p).total) e.push(`${kind === "gauge" ? "Manometre" : "Boşaltma"} çıkışı: çap, boy ve uçtan aks ölçüsünü kontrol edin.`);
+    const allowed = kind === "gauge" ? ["left", "right", "bottom-left", "bottom-right"] : ["left", "right", "center-top", "center-bottom"];
+    const centered = outlet.position.startsWith("center-");
+    if (!allowed.includes(outlet.position) || !PIPE_SIZES.includes(outlet.size as typeof PIPE_SIZES[number]) || !Number.isFinite(outlet.length) || outlet.length <= 0 || (!centered && (!Number.isFinite(outlet.offset) || outlet.offset <= 0 || outlet.offset >= computeLayout(p).total))) e.push(`${kind === "gauge" ? "Manometre" : "Boşaltma"} çıkışı: çap, boy ve uçtan aks ölçüsünü kontrol edin.`);
   }
+  mainEndType(p).split("-").forEach((kind, i) => {
+    const setting = mainEndSetting(p, i === 0 ? "left" : "right");
+    if (kind === "open" && (!PIPE_SIZES.includes(setting.size as typeof PIPE_SIZES[number]) || !["male", "socket"].includes(setting.connection))) e.push(`${i === 0 ? "Sol" : "Sağ"} açık uç: çap ve bağlantıyı kontrol edin.`);
+  });
   if (p.mainEndType && !(p.mainEndType in MAIN_END_LABELS)) e.push("Ana boru uç tipi geçersiz.");
   if (!PIPE_SIZES.includes(p.mainSize as typeof PIPE_SIZES[number])) e.push("Ana boru çapı geçersiz.");
   if (p.branches) branchSettings(p).forEach((b, i) => {
-    if (!PIPE_SIZES.includes(b.size as typeof PIPE_SIZES[number]) || !Number.isFinite(b.length) || b.length <= 0 || !Number.isFinite(b.spacing) || b.spacing <= 0 || !["male", "flanged"].includes(b.connection)) e.push(`C${i + 1}: çap, boy, aks aralığı ve bağlantıyı kontrol edin.`);
+    if (!PIPE_SIZES.includes(b.size as typeof PIPE_SIZES[number]) || !Number.isFinite(b.length) || b.length <= 0 || !Number.isFinite(b.spacing) || b.spacing <= 0 || !["male", "flanged", "socket"].includes(b.connection)) e.push(`C${i + 1}: çap, boy, aks aralığı ve bağlantıyı kontrol edin.`);
   });
   if (!Number.isSafeInteger(p.quantity) || p.quantity < 1) e.push("Adet 1 veya daha büyük bir tam sayı olmalı.");
   if (p.date && (!/^\d{4}-\d{2}-\d{2}$/.test(p.date) || Number.isNaN(Date.parse(p.date)) || new Date(p.date).toISOString().slice(0, 10) !== p.date)) e.push("Tarih geçersiz.");
@@ -199,7 +211,12 @@ export function manufacturingRows(p: Project) {
   });
   for (const kind of ["drain", "gauge"] as const) {
     const o = p.auxiliaryOutlets?.[kind];
-    if (o) rows.push({ id: kind === "drain" ? "B1" : "M1", size: kind === "gauge" ? "1/2" : o.size, length: o.length, axis: o.offset, side: kind === "drain" ? "bottom" : "top", position: o.position === "left" ? o.offset : layout.total - o.offset, connection: "male", end: o.position });
+    if (o) {
+      const centered = o.position.startsWith("center-");
+      const end = centered ? undefined : o.position === "left" || o.position === "bottom-left" ? "left" as const : "right" as const;
+      const side = o.position === "center-top" ? "top" : o.position === "center-bottom" || o.position.startsWith("bottom-") || kind === "drain" ? "bottom" : "top";
+      rows.push({ id: kind === "drain" ? "B1" : "M1", size: o.size, length: o.length, axis: centered ? layout.total / 2 : o.offset, side, position: centered ? layout.total / 2 : end === "left" ? o.offset : layout.total - o.offset, connection: "male", end });
+    }
   }
   return rows;
 }

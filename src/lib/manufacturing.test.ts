@@ -15,15 +15,15 @@ describe("workshop optional outlets", () => {
     const p = { ...newProject(), auxiliaryOutlets: { drain: { ...defaultAuxiliaryOutlet("drain"), position: "left" as const, offset: 3 }, gauge: { ...defaultAuxiliaryOutlet("gauge"), offset: 2 } } };
     expect(manufacturingRows(p).slice(-2).map(r => [r.id, r.side, r.position, r.axis, r.size])).toEqual([["B1", "bottom", 3, 3, "3/4"], ["M1", "top", 37, 2, "1/2"]]);
   });
-  it("enforces the fixed half-inch manometer diameter", () => {
-    expect(validate({ ...newProject(), auxiliaryOutlets: { gauge: { ...defaultAuxiliaryOutlet("gauge"), size: "3/4" } } })).toHaveLength(1);
+  it("accepts selectable manometer diameters through six inches", () => {
+    expect(validate({ ...newProject(), auxiliaryOutlets: { gauge: { ...defaultAuxiliaryOutlet("gauge"), size: "6" } } })).toEqual([]);
     expect(validate({ ...newProject(), auxiliaryOutlets: { gauge: defaultAuxiliaryOutlet("gauge") } })).toEqual([]);
   });
   it("never places a left fitting between numbered outlets", () => {
     const p = { ...newProject(), auxiliaryOutlets: { drain: { ...defaultAuxiliaryOutlet("drain"), position: "left" as const, offset: 15 } } };
     const rows = manufacturingRows(p);
     const firstOutlet = Math.min(...rows.filter(r => r.id.startsWith("C")).map(r => r.position));
-    expect(rows.find(r => r.id === "B1")!.position).toBeLessThan(firstOutlet);
+    expect(rows.find(r => r.id === "B1")?.position).toBeLessThan(firstOutlet);
   });
   it("reports first branch axes from the start and subsequent axes from the same side", () => {
     const p = { ...newProject(), branches: branchSettings(newProject()) };
