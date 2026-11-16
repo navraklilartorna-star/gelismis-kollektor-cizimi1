@@ -27,6 +27,8 @@
 - Render each collector on exactly one diagram-only sheet; end-positioned fittings extend the pipe while center fittings do not alter numbered axes.
 - Persist optional main-end settings under the reserved mainEnds key in existing auxiliary_outlets JSON and unpack it separately from auxiliary fittings; this extends saves without schema changes or rewriting existing records.
 - Resolve independent end kinds through collector helpers with legacy fallbacks, preserving saved geometry and supporting all side combinations without changing legacy end enums.
+- Derive the two collector UI modes from resolved end kinds and change explicit end settings only; never change legacy thread placement when selecting a mode.
+- Render socket branches as single widened bodies seated on the main pipe and compress drawing lengths independently of stored production dimensions.
 - Generate PNG in the browser from the same drawing primitives with embedded fonts and logo at four-times resolution; prepare files before user-triggered download/share to preserve mobile activation.
 - Use manifest-only home-screen metadata without a service worker because offline behavior is not requested.
 - Store optional fittings as a separate collector JSON field and use the shared production schedule for their placement and table values, so they never change numbered branch membership or axes.

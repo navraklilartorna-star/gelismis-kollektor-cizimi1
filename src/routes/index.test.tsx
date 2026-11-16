@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Route } from "./index";
-import { newProject, type Project } from "@/lib/collector";
+import { newProject, branchSettings, computeLayout, mainEndKind, type Project } from "@/lib/collector";
 import { saveManufacturingProject, saveCloudProject, deleteCloudProject } from "@/lib/cloud-projects";
 
 const records = vi.hoisted(() => ({ projects: [] as Project[] }));
@@ -32,6 +32,37 @@ function editor() {
 afterEach(() => { cleanup(); records.projects = []; vi.clearAllMocks(); vi.restoreAllMocks(); });
 
 describe("collector editor actions", () => {
+  it("closes both ends without changing odd-outlet placement or production measurements", async () => {
+    editor();
+    fireEvent.change(screen.getByLabelText("Çıkış sayısı"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("C1 boy"), { target: { value: "17" } });
+    fireEvent.change(screen.getByLabelText("Kollektör tipi"), { target: { value: "closed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(1));
+    const saved = vi.mocked(saveManufacturingProject).mock.calls[0]?.[0]?.[0];
+    if (!saved) throw new Error("Missing saved collector");
+    expect(mainEndKind(saved, "left")).toBe("closed");
+    expect(mainEndKind(saved, "right")).toBe("closed");
+    expect(saved.thread).toBe("kapali");
+    expect(branchSettings(saved)[0]?.length).toBe(17);
+    const legacyGeometry: Project = { ...saved, mainEnds: undefined };
+    expect(computeLayout(saved).outlets).toEqual(computeLayout(legacyGeometry).outlets);
+    expect(deleteCloudProject).not.toHaveBeenCalled();
+  });
+  it("saves independently selected socket and flanged ends with their diameters", async () => {
+    editor();
+    fireEvent.change(screen.getByLabelText("Sol uç bağlantı"), { target: { value: "socket" } });
+    fireEvent.change(screen.getByLabelText("Sol uç çap"), { target: { value: "1/2" } });
+    fireEvent.change(screen.getByLabelText("Sağ uç bağlantı"), { target: { value: "flanged" } });
+    fireEvent.change(screen.getByLabelText("Sağ uç çap"), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+    await waitFor(() => expect(saveManufacturingProject).toHaveBeenCalledTimes(1));
+    const saved = vi.mocked(saveManufacturingProject).mock.calls[0]?.[0]?.[0];
+    expect(saved?.mainEnds?.left).toMatchObject({ kind: "socket", size: "1/2" });
+    expect(saved?.mainEnds?.right).toMatchObject({ kind: "flanged", size: "6" });
+    if (!saved) throw new Error("Missing saved collector");
+    expect(computeLayout(saved).total).toBe(34);
+  });
   it("preserves three collectors on customer rename and saves each click as an isolated snapshot", async () => {
     editor();
     fireEvent.change(screen.getByLabelText("Adet"), { target: { value: "7" } });

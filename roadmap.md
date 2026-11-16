@@ -1,4 +1,9 @@
 # Requested changes
+- [x] Draw socket branches directly on the main pipe without an added pipe and shorten visual branch proportions only.
+- [x] Offer two collector modes with independent ends only in the configurable mode, preserving legacy axes and saved records.
+- [x] Verify threaded/socket geometry, all end combinations, PDF/PNG and mobile controls without cloud writes.
+
+Final drawing QA: 74 tests passed, including direct top/bottom socket junctions, unchanged production lengths/odd-outlet positions and 25 independent end combinations. Browser checks passed for the two modes, three requested end examples and 390×600 controls, with no page errors. PDF has one A4 sheet; PNG is 4000×2828. No cloud writes or database changes. The original supplied logo was served locally during browser export checks because of the sandbox asset proxy limitation; hosted asset delivery and native mobile sharing remain unverified.
 - [x] Simplify and enlarge the sheet, correct socket junctions and add independent five-way pipe ends.
 - [x] Add the supplied logo, home-screen icons and high-resolution PNG/PDF delivery.
 - [x] Verify dimensions, saved-data compatibility, exports and mobile layout without modifying existing records.

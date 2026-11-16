@@ -4,6 +4,26 @@ import { projectRow, rowProject } from "./cloud-projects";
 import { buildDrawingPages } from "./drawing";
 
 describe("pipe fitting updates", () => {
+  it.each(["top", "bottom"] as const)("draws one complete socket body seated on the %s main surface without an extension", side => {
+    const base = newProject();
+    const branches = branchSettings(base);
+    const index = side === "top" ? 0 : 1;
+    branches[index] = { size: "3/4", length: 17, spacing: 20, connection: "socket" };
+    const p = { ...base, branches };
+    const sheet = buildDrawingPages(p)[0] ?? [];
+    const mainHeight = pipeDiameterMm("2") * 70 / pipeDiameterMm("2");
+    const surface = 350 + (side === "top" ? -1 : 1) * mainHeight / 2;
+    const x = 140 + 10 * 720 / 34;
+    const bodies = sheet.filter(pr => pr.t === "rect" && pr.stroke && pr.sw === 1.8 && Math.abs(pr.x + pr.w / 2 - x) < 0.01 && (side === "top" ? pr.y < surface : pr.y >= surface));
+    expect(bodies).toHaveLength(1);
+    const body = bodies[0];
+    if (!body || body.t !== "rect") throw new Error("Missing socket body");
+    expect(body.h).toBe(70);
+    expect(body.w).toBeCloseTo(pipeDiameterMm("3/4") * 70 / pipeDiameterMm("2") * 1.3);
+    expect(side === "top" ? body.y + body.h : body.y).toBeCloseTo(surface);
+    expect(manufacturingRows(p)[index]?.length).toBe(17);
+    expect(computeLayout(p).total).toBe(34);
+  });
   it.each(Object.keys(END_LABELS) as EndKind[])("round trips independent %s ends without changing the branch axes", left => {
     for (const right of Object.keys(END_LABELS) as EndKind[]) {
       const p: Project = { ...newProject(), customerName: "Atölye", mainEnds: { left: { kind: left, size: "1/2", connection: "male" }, right: { kind: right, size: "6", connection: "socket" } } };

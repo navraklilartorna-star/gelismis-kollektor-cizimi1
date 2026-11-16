@@ -57,7 +57,8 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const text = (x: number, y: number, value: string, s = 14, c = INK, anchor: "start" | "middle" | "end" = "middle") => out.push({ t: "text", x, y, text: value, s, c, anchor, bold: true });
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*7,y-3.5],[x+dir*7,y+3.5]], fill: DIM });
   const longest = Math.max(1, ...rows.map(b => b.length));
-  const scale = 720 / Math.max(total, 1), lengthScale = 115 / longest;
+   // Compress the visual length only; production lengths and axes remain untouched.
+   const scale = 720 / Math.max(total, 1), lengthScale = 70 / longest;
   const maxDiameter = Math.max(pipeDiameterMm(p.mainSize), ...rows.map(b => pipeDiameterMm(b.size)), ...["left", "right"].map(side => pipeDiameterMm(mainEndSetting(p, side as "left" | "right").size)));
   let diameterScale = 70 / maxDiameter;
   for (const side of ["top", "bottom"] as const) {
@@ -117,24 +118,27 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const lanes = minGap >= 64 ? 1 : minGap >= 34 ? 2 : 3;
     const fs = lanes === 3 ? 10 : lanes === 2 ? 13 : 17, lh = fs + 2, laneH = lh + 4;
     const dir = side === "top" ? -1 : 1, base = y + dir*ph/2;
-    const tipLimit = base + dir*115;
+     const tipLimit = base + dir*70;
     sideRows.forEach((b,index) => {
       const x = xs[index] ?? x0, tip = base + dir*b.length*lengthScale;
       const width = pipeDiameterMm(b.size) * diameterScale;
-      pipe(x-width/2, Math.min(base,tip), width, Math.abs(tip-base), true);
-      // A white weld collar removes the seam at the branch/main junction.
-      out.push({t:"rect",x:x-width/2+1,y:base-2,w:Math.max(0,width-2),h:4,fill:PIPE});
-      if (b.connection === "flanged") pipe(x-width,tip-3,width*2,6);
-      else if (b.connection === "socket") {
-        const socketH = Math.min(30, Math.abs(tip-base));
-        const sy = side === "top" ? base - socketH : base;
+       if (b.connection === "socket") {
+         // The socket is the complete outlet body, seated on the main pipe.
+         // Do not draw a narrower extension above it to match threaded outlets.
+         const socketH = Math.abs(tip-base);
+         const sy = Math.min(base,tip);
         pipe(x-width*0.65,sy,width*1.3,socketH,true);
         out.push({t:"rect",x:x-width*0.65+1,y:base-2,w:Math.max(0,width*1.3-2),h:4,fill:PIPE});
         line(x-width*0.65,sy+2,x+width*0.65,sy+2,EDGE,0.8);
         line(x-width*0.65,sy+socketH-2,x+width*0.65,sy+socketH-2,EDGE,0.8);
       } else {
-        const threadH = Math.min(14,Math.abs(tip-base));
-        thread(x-width/2, side === "top" ? tip : tip-threadH, width, threadH, true);
+         pipe(x-width/2, Math.min(base,tip), width, Math.abs(tip-base), true);
+         out.push({t:"rect",x:x-width/2+1,y:base-2,w:Math.max(0,width-2),h:4,fill:PIPE});
+         if (b.connection === "flanged") pipe(x-width,tip-3,width*2,6);
+         else {
+           const threadH = Math.min(14,Math.abs(tip-base));
+           thread(x-width/2, side === "top" ? tip : tip-threadH, width, threadH, true);
+         }
       }
       const lane = index % lanes;
       const near = tipLimit + dir*(8 + lane*laneH);

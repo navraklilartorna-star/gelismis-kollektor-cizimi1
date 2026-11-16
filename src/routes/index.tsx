@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileText, Download, Folder, X } from "lucide-react";
 import {
-  PIPE_SIZES, LAYOUT_LABELS, THREAD_LABELS, THREAD_HINTS, computeLayout, fmt, inchFlat, newProject, normalizeProject, validate,
-  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, type Layout, type Project, type Thread,
+  PIPE_SIZES, LAYOUT_LABELS, computeLayout, fmt, inchFlat, newProject, normalizeProject, validate,
+  customerLabel, groupCustomerProjects, savedBatches, saveSnapshot, mainEndKind, mainEndSetting, type Layout, type Project,
 } from "@/lib/collector";
 
 /** Default start length per layout: tek sıra 8 cm, karşılıklı 10 cm. */
@@ -110,6 +110,7 @@ function Index() {
     start: Number(nums.start.replace(",", ".")), end: Number(nums.end.replace(",", ".")),
   }), [p, nums]);
   const errors = validate(parsed);
+  const bothEndsClosed = mainEndKind(parsed, "left") === "closed" && mainEndKind(parsed, "right") === "closed";
   const ok = errors.length === 0 && Object.values(nums).every((value) => value.trim() !== "");
   const total = ok ? computeLayout(parsed).total : null;
   const candidates = new Map(list.map((x) => [x.id, x]));
@@ -275,14 +276,20 @@ function Index() {
             ))}
           </div>
           <Group label="Çıkış düzeni"><Seg<Layout> value={p.layout} options={LAYOUT_LABELS} onChange={(layout) => { setP({ ...p, layout }); setNums((old) => ({ ...old, start: LAYOUT_START[layout] })); }} /></Group>
-          <Field label="Kollektör tipi"><select className={`${inputCls} font-sans text-base`} value={p.thread} onChange={e => setP({ ...p, thread: e.target.value as Thread })}>{Object.entries(THREAD_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-          <MainEndEditor project={parsed} onChange={mainEnds => setP({ ...p, mainEnds })} />
+          <Field label="Kollektör tipi"><select className={`${inputCls} font-sans text-base`} value={bothEndsClosed ? "closed" : "configurable"} onChange={e => {
+            const closed = e.target.value === "closed";
+            setP({ ...p, mainEnds: {
+              left: { ...mainEndSetting(p, "left"), kind: closed ? "closed" : "male" },
+              right: { ...mainEndSetting(p, "right"), kind: "closed" },
+            } });
+            setPdf(null);
+          }}><option value="closed">İki tarafı kapalı</option><option value="configurable">Bir tarafı açık</option></select></Field>
+          {!bothEndsClosed && <MainEndEditor project={parsed} onChange={mainEnds => { setP({ ...p, mainEnds }); setPdf(null); }} />}
           <BranchEditor project={parsed} onChange={branches => setP({ ...p, branches })} />
           <AuxiliaryOutletEditor project={parsed} onChange={auxiliaryOutlets => { setP({ ...p, auxiliaryOutlets }); setPdf(null); }} />
           <Field label="Üretim notu">
             <textarea className={`${inputCls} h-28 resize-y font-sans text-base`} maxLength={180} placeholder="Örn. Çıkışlar kaynak sonrası kontrol edilecek." value={p.notes} onChange={(e) => setP({ ...p, notes: e.target.value })} />
           </Field>
-          <p className="text-sm text-muted-foreground">{THREAD_HINTS[p.thread]}{p.layout === "karsilikli" && parsed.count % 2 === 1 ? "" : " (tek kalan çıkış, karşılıklı düzende tek sayıda çıkışta geçerlidir)"}</p>
           {errors.length > 0 && (
             <ul className="space-y-1 rounded-xl bg-destructive/10 p-4 text-destructive">{errors.map((e) => <li key={e}>• {e}</li>)}</ul>
           )}
