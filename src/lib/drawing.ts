@@ -93,7 +93,8 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const socketThread = (x: number, yy: number, w: number, h: number, vertical: boolean) => {
     const span = vertical ? h : w;
     const wall = (vertical ? w : h) * 0.22;
-    for (let k = 3; k < span - 2; k += 3) {
+    // Short internal thread near the opening; the socket body length is untouched.
+    for (let k = 3; k < Math.min(span - 2, 14); k += 3) {
       if (vertical) {
         line(x + 1, yy + k, x + wall, yy + k - 1, THREAD, 1);
         line(x + w - wall, yy + k - 1, x + w - 1, yy + k, THREAD, 1);
@@ -162,6 +163,13 @@ function advancedDrawingPages(p: Project): Prim[][] {
       const near = tipLimit + dir*(18 + lane*laneH);
       const y1 = side === "top" ? near : near + fs;
       line(x, tip + dir*(b.connection === "flanged" ? 3 : 0), x, side === "top" ? y1 + 3 : y1 - fs - 2, INK, 0.6);
+      // Connection-type callout above the outlet with an arrow pointing up to it.
+      const connLabel = b.connection === "socket" ? "MAŞON" : b.connection === "flanged" ? "FLANŞ" : "ERKEK";
+      const cy = tip + dir*(b.connection === "flanged" ? 26 : 22);
+      const ay = tip + dir*(b.connection === "flanged" ? 8 : 6);
+      line(x, ay, x, cy - dir*4, INK, 1);
+      out.push({ t: "poly", pts: [[x, cy - dir*2], [x - 3.5, cy - dir*8], [x + 3.5, cy - dir*8]], fill: INK });
+      text(x, cy + (side === "top" ? -2 : 12), connLabel, 16, INK);
       const labelHalfWidth = `${b.id} ${inchLabel(b.size)}`.length * fs * CHAR_W / 2;
       const lx = Math.min(W - 24 - labelHalfWidth, Math.max(24 + labelHalfWidth, x));
       text(lx, y1, `${b.id} ${inchLabel(b.size)}`, fs, side === "top" ? INK : INK);
