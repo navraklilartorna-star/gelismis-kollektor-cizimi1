@@ -89,6 +89,20 @@ function advancedDrawingPages(p: Project): Prim[][] {
       else line(x + k, yy, x + Math.min(span, k + 0.8), yy + h, THREAD, 0.85);
     }
   };
+  // Internal threads are confined to the two inside walls, leaving the bore clear.
+  const socketThread = (x: number, yy: number, w: number, h: number, vertical: boolean) => {
+    const span = vertical ? h : w;
+    const wall = (vertical ? w : h) * 0.22;
+    for (let k = 3; k < span - 2; k += 3) {
+      if (vertical) {
+        line(x + 1, yy + k, x + wall, yy + k - 1, THREAD, 1);
+        line(x + w - wall, yy + k - 1, x + w - 1, yy + k, THREAD, 1);
+      } else {
+        line(x + k, yy + 1, x + k - 1, yy + wall, THREAD, 1);
+        line(x + k - 1, yy + h - wall, x + k, yy + h - 1, THREAD, 1);
+      }
+    }
+  };
   pipe(x0, y-ph/2, x1-x0, ph);
   (["left", "right"] as const).forEach((side,i) => {
     const kind = mainEndKind(p, side);
@@ -104,9 +118,10 @@ function advancedDrawingPages(p: Project): Prim[][] {
         pipe(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3);
         line(sx + 3, y - diameter * 0.65, sx + 3, y + diameter * 0.65, EDGE);
         line(sx + length - 3, y - diameter * 0.65, sx + length - 3, y + diameter * 0.65, EDGE);
+        socketThread(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3, false);
       } else thread(sx, y - diameter / 2, length, diameter, false);
     }
-    if (kind !== "open" && kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 18, inchLabel(setting.size), 16, INK, i === 0 ? "end" : "start");
+    if (kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 22, inchLabel(kind === "open" ? p.mainSize : setting.size), 26, INK, i === 0 ? "end" : "start");
     const label = kind === "closed" ? "KAPALI" : i === 0 ? "GİRİŞ" : "ÇIKIŞ";
     text(x, y + Math.max(ph / 2, kind === "flanged" ? diameter : diameter * 0.65, 20) + 28, label, 19, INK, i === 0 ? "end" : "start");
   });
@@ -115,8 +130,10 @@ function advancedDrawingPages(p: Project): Prim[][] {
     const sideRows = rows.filter(r => r.side === side).sort((a,b) => a.position-b.position);
     const xs = sideRows.map(b => x0 + b.position*scale);
     const minGap = Math.min(999, ...xs.slice(1).map((x,i) => x - (xs[i] ?? 0)));
-    const lanes = minGap >= 64 ? 1 : minGap >= 34 ? 2 : 3;
-    const fs = lanes === 3 ? 10 : lanes === 2 ? 13 : 17, lh = fs + 2, laneH = lh + 4;
+    const fs = minGap >= 90 ? 26 : minGap >= 45 ? 22 : 18;
+    const widestLabel = Math.max(1, ...sideRows.map(b => `${b.id} ${inchLabel(b.size)}`.length)) * fs * CHAR_W + 12;
+    const lanes = Math.min(6, Math.max(1, Math.ceil(widestLabel / Math.max(1, minGap))));
+    const laneH = fs + 10;
     const dir = side === "top" ? -1 : 1, base = y + dir*ph/2;
      const tipLimit = base + dir*70;
     sideRows.forEach((b,index) => {
@@ -131,6 +148,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
         out.push({t:"rect",x:x-width*0.65+1,y:base-2,w:Math.max(0,width*1.3-2),h:4,fill:PIPE});
         line(x-width*0.65,sy+2,x+width*0.65,sy+2,EDGE,0.8);
         line(x-width*0.65,sy+socketH-2,x+width*0.65,sy+socketH-2,EDGE,0.8);
+        socketThread(x-width*0.65,sy,width*1.3,socketH,true);
       } else {
          pipe(x-width/2, Math.min(base,tip), width, Math.abs(tip-base), true);
          out.push({t:"rect",x:x-width/2+1,y:base-2,w:Math.max(0,width-2),h:4,fill:PIPE});
@@ -141,17 +159,19 @@ function advancedDrawingPages(p: Project): Prim[][] {
          }
       }
       const lane = index % lanes;
-      const near = tipLimit + dir*(8 + lane*laneH);
+      const near = tipLimit + dir*(18 + lane*laneH);
       const y1 = side === "top" ? near : near + fs;
       line(x, tip + dir*(b.connection === "flanged" ? 3 : 0), x, side === "top" ? y1 + 3 : y1 - fs - 2, INK, 0.6);
-      const lx = Math.min(950, Math.max(50, x));
+      const labelHalfWidth = `${b.id} ${inchLabel(b.size)}`.length * fs * CHAR_W / 2;
+      const lx = Math.min(W - 24 - labelHalfWidth, Math.max(24 + labelHalfWidth, x));
       text(lx, y1, `${b.id} ${inchLabel(b.size)}`, fs, side === "top" ? INK : INK);
       if (side === "bottom") bottomEdge = Math.max(bottomEdge, y1 + 4);
     });
   }
   const mainLabel = `ANA BORU ${inchLabel(p.mainSize)}`;
-  out.push({t:"rect",x:500-mainLabel.length*5,y:y-11,w:mainLabel.length*10,h:22,fill:"#ffffff"});
-  text(500,y+6,mainLabel,17);
+  const mainLabelWidth = mainLabel.length * 28 * CHAR_W + 16;
+  out.push({t:"rect",x:500-mainLabelWidth/2,y:y-18,w:mainLabelWidth,h:36,fill:PIPE});
+  text(500,y+10,mainLabel,28);
   const positions=[...new Set([0,...rows.map(r=>r.position),total])].sort((a,b)=>a-b), dimY = bottomEdge + 16, totY = dimY + 24;
   positions.forEach(cm=>{const x=x0+cm*scale;line(x,dimY-8,x,totY+4,DIM,0.6);});
   positions.slice(1).forEach((cm,i)=>{const prev=positions[i];if(prev===undefined || cm<=prev)return;const a=x0+prev*scale,z=x0+cm*scale;line(a,dimY,z,dimY,DIM,1.2);if(z-a>16){arrow(a,dimY,1);arrow(z,dimY,-1);text((a+z)/2,dimY-4,fmt(cm-prev),z-a>28?12:9,DIM);}});

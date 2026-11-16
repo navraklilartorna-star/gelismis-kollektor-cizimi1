@@ -29,6 +29,7 @@
 - Resolve independent end kinds through collector helpers with legacy fallbacks, preserving saved geometry and supporting all side combinations without changing legacy end enums.
 - Derive the two collector UI modes from resolved end kinds and change explicit end settings only; never change legacy thread placement when selecting a mode.
 - Render socket branches as single widened bodies seated on the main pipe and compress drawing lengths independently of stored production dimensions.
+- Draw socket internal threads along the bore walls and stagger enlarged inch callouts by available axis spacing so all exports share the same geometry.
 - Generate PNG in the browser from the same drawing primitives with embedded fonts and logo at four-times resolution; prepare files before user-triggered download/share to preserve mobile activation.
 - Use manifest-only home-screen metadata without a service worker because offline behavior is not requested.
 - Store optional fittings as a separate collector JSON field and use the shared production schedule for their placement and table values, so they never change numbered branch membership or axes.

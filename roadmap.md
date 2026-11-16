@@ -1,4 +1,8 @@
 # Requested changes
+- [x] Show internal threads in branch and main-end sockets and enlarge inch annotations without changing dimensions.
+- [x] Verify socket geometry and readable single-sheet preview/PDF/PNG output.
+
+Socket lettering QA: 25 geometry/PDF tests passed. Browser exports succeeded with no page errors; four-outlet and sixty-outlet previews were visually inspected. Inch callouts now use larger bold type with spacing-based staggered labels; sockets show internal wall threads. Production settings and cloud records were not changed.
 - [x] Draw socket branches directly on the main pipe without an added pipe and shorten visual branch proportions only.
 - [x] Offer two collector modes with independent ends only in the configurable mode, preserving legacy axes and saved records.
 - [x] Verify threaded/socket geometry, all end combinations, PDF/PNG and mobile controls without cloud writes.
