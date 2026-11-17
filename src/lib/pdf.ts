@@ -2,6 +2,7 @@ import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { buildDrawingPages, partWidth, textsWidth, W, H } from "./drawing";
 import type { Project } from "./collector";
+import { logoUrl, pdfLogoUrl } from "@/assets/logo";
 
 let fontCache: Promise<[ArrayBuffer, ArrayBuffer]> | null = null;
 export function preloadFonts() {
@@ -25,7 +26,7 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
   const images = new Map<string, Awaited<ReturnType<typeof doc.embedPng>>>();
   for (const project of projects) for (const pr of buildDrawingPages(project).flat()) {
     if (pr.t === "image" && !images.has(pr.src)) {
-      const response = await fetch(pr.src);
+      const response = await fetch(pr.src === logoUrl ? pdfLogoUrl : pr.src);
       if (!response.ok) throw new Error("Logo yüklenemedi");
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes[0] === 137 && bytes[1] === 80) images.set(pr.src, await doc.embedPng(bytes));
