@@ -160,7 +160,8 @@ function advancedDrawingPages(p: Project): Prim[][] {
          }
       }
       const lane = index % lanes;
-      const near = tipLimit + dir*(18 + lane*laneH);
+      // Reserve space for the connection callout above the tip before the size labels.
+      const near = tipLimit + dir*(44 + lane*laneH);
       const y1 = side === "top" ? near : near + fs;
       line(x, tip + dir*(b.connection === "flanged" ? 3 : 0), x, side === "top" ? y1 + 3 : y1 - fs - 2, INK, 0.6);
       // Connection-type callout above the outlet with an arrow pointing up to it.
