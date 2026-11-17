@@ -236,9 +236,9 @@ function Index() {
   return (
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 bg-primary px-4 py-2 sm:gap-3 sm:px-5 sm:py-4 text-primary-foreground">
-        <div>
-          <img src={logoUrl} alt="Navraklılar Torna" className="mb-1 h-auto w-32 max-w-full sm:mb-2 sm:w-60 object-contain" />
-          <h1 className="max-w-xl text-base font-bold sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
+        <div className="flex items-center gap-3 sm:block">
+          <img src={logoUrl} alt="Navraklılar Torna" className="h-auto w-40 max-w-[50%] shrink-0 object-contain sm:mb-2 sm:w-60 sm:max-w-full" />
+          <h1 className="max-w-xl text-sm font-bold leading-tight sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base">Projeler</Button>

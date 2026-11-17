@@ -110,7 +110,8 @@ export async function deliverFile(blob: Blob, filename: string) {
   const file = new File([blob], filename, { type: blob.type });
   const touch = matchMedia("(pointer: coarse)").matches;
   if (touch && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: filename }); return; }
+    // Yalnızca dosya paylaşılır (title/text eklenmez): WhatsApp ve bazı iOS uygulamaları dosyayla birlikte metin gelince gönderemiyor.
+    try { await navigator.share({ files: [file] }); return; }
     catch (e) { if ((e as DOMException).name === "AbortError") return; }
   }
   downloadBlob(blob, filename);
