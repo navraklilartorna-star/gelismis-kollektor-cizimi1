@@ -38,38 +38,39 @@ jobs:
         run: bun run build
 
       - name: Prepare GitHub Pages files
+        id: prepare
+        shell: bash
         run: |
           set -euo pipefail
-          if [ -d ".output/public" ]; then
-            PUBLISH_DIR=".output/public"
-          elif [ -d "dist" ]; then
-            PUBLISH_DIR="dist"
-          else
-            echo "Static output directory was not found."
-            find . -maxdepth 3 -type d \( -name public -o -name dist \)
-            exit 1
-          fi
+          echo "Build output directories:"
+          find . -maxdepth 4 -type d -not -path './node_modules*' -not -path './.git*' | sort | head -160
 
-          if [ -f "$PUBLISH_DIR/_shell.html" ]; then
-            cp "$PUBLISH_DIR/_shell.html" "$PUBLISH_DIR/index.html"
-            cp "$PUBLISH_DIR/_shell.html" "$PUBLISH_DIR/404.html"
-          elif [ -f "$PUBLISH_DIR/index.html" ]; then
-            cp "$PUBLISH_DIR/index.html" "$PUBLISH_DIR/404.html"
+          SHELL_FILE="$(find . -type f -name '_shell.html' -not -path './node_modules/*' -not -path './.git/*' -print -quit)"
+          if [ -n "$SHELL_FILE" ]; then
+            PUBLISH_DIR="$(dirname "$SHELL_FILE")"
+            cp "$SHELL_FILE" "$PUBLISH_DIR/index.html"
+            cp "$SHELL_FILE" "$PUBLISH_DIR/404.html"
           else
-            echo "Neither the SPA shell nor index.html was generated."
-            find "$PUBLISH_DIR" -maxdepth 3 -type f | head -100
-            exit 1
+            INDEX_FILE="$(find . -type f -name 'index.html' -not -path './node_modules/*' -not -path './.git/*' -print -quit)"
+            if [ -z "$INDEX_FILE" ]; then
+              echo "No static HTML entry point was generated."
+              find . -maxdepth 5 -type f -not -path './node_modules/*' | head -200
+              exit 1
+            fi
+            PUBLISH_DIR="$(dirname "$INDEX_FILE")"
+            cp "$INDEX_FILE" "$PUBLISH_DIR/404.html"
           fi
 
           touch "$PUBLISH_DIR/.nojekyll"
+          echo "publish_dir=$PUBLISH_DIR" >> "$GITHUB_OUTPUT"
           echo "GitHub Pages output: $PUBLISH_DIR"
-          find "$PUBLISH_DIR" -maxdepth 2 -type f | head -100
+          find "$PUBLISH_DIR" -maxdepth 3 -type f | head -120
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .output/public
+          path: ${{ steps.prepare.outputs.publish_dir }}
 
   deploy:
     if: github.ref == 'refs/heads/main'
