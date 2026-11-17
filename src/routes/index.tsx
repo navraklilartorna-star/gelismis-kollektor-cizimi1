@@ -10,7 +10,7 @@ import { MainEndEditor } from "@/components/MainEndEditor";
 import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
 import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
-import logo from "@/assets/navraklilar-logo.png.asset.json";
+import { logoUrl } from "@/assets/logo";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileText, Download, Folder, X } from "lucide-react";
@@ -237,7 +237,7 @@ function Index() {
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-primary px-5 py-4 text-primary-foreground">
         <div>
-          <img src={logo.url} alt="Navraklılar Torna" className="mb-2 h-auto w-60 max-w-full object-contain" />
+          <img src={logoUrl} alt="Navraklılar Torna" className="mb-2 h-auto w-60 max-w-full object-contain" />
           <h1 className="max-w-xl text-xl font-bold sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
         </div>
         <div className="flex flex-wrap gap-2">

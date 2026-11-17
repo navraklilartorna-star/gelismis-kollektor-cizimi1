@@ -1,5 +1,5 @@
 import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm } from "./collector";
-import logo from "@/assets/navraklilar-logo.png.asset.json";
+import { logoUrl } from "@/assets/logo";
 
 export const W = 1000;
 export const H = 707;
@@ -50,9 +50,9 @@ function advancedDrawingPages(p: Project): Prim[][] {
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
     { t: "text", x: 30, y: 40, s: Math.min(24, 550 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
     { t: "text", x: 30, y: 64, s: 12, text: `${LAYOUT_LABELS[p.layout]} • ${p.count} çıkış`, bold: true, c: INK },
-    { t: "image", x: 700, y: 20, w: 270, h: 90, src: logo.url },
+    { t: "image", x: 700, y: 20, w: 270, h: 90, src: logoUrl },
     { t: "text", x: 30, y: 88, s: 14, text: `Tarih: ${p.date} • cm / inç`, bold: true, c: INK },
-    { t: "text", x: 835, y: 152, s: 40, text: `ADET: ${p.quantity}`, bold: true, c: INK },
+    { t: "text", x: 835, y: 152, s: 40, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "middle" },
   ];
   const line = (x1: number, y1: number, x2: number, y2: number, c = INK, w = 1.5) => out.push({ t: "line", x1, y1, x2, y2, c, w });
   const text = (x: number, y: number, value: string, s = 14, c = INK, anchor: "start" | "middle" | "end" = "middle") => out.push({ t: "text", x, y, text: value, s, c, anchor, bold: true });
