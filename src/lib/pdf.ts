@@ -107,8 +107,16 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
+/** Yalnızca ASCII dosya adı: iOS'ta WhatsApp, Türkçe karakter/boşluk içeren adlarla paylaşımı reddediyor. */
+export function shareSafeName(filename: string) {
+  const ext = /\.(pdf|png)$/i.exec(filename)?.[0].toLowerCase() ?? "";
+  const map: Record<string, string> = { ç: "c", Ç: "C", ğ: "g", Ğ: "G", ı: "i", İ: "I", ö: "o", Ö: "O", ş: "s", Ş: "S", ü: "u", Ü: "U" };
+  const base = filename.replace(/\.(pdf|png)$/i, "").replace(/[çÇğĞıİöÖşŞüÜ]/g, (c) => map[c] ?? c).normalize("NFKD").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return `${base || "kollektor"}${ext}`;
+}
+
 export async function deliverFile(blob: Blob, filename: string) {
-  const file = new File([blob], filename, { type: blob.type });
+  const file = new File([blob], shareSafeName(filename), { type: blob.type });
   const touch = matchMedia("(pointer: coarse)").matches;
   if (touch && navigator.canShare?.({ files: [file] })) {
     // Yalnızca dosya paylaşılır (title/text eklenmez): WhatsApp ve bazı iOS uygulamaları dosyayla birlikte metin gelince gönderemiyor.
