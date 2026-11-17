@@ -1,9 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { X } from "lucide-react";
-import "@lovable.dev/cloud-auth-js/styles.css";
 
 export function AccountDialog({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
@@ -31,13 +29,15 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
     } catch { setMessage(mode === "login" ? "Giriş yapılamadı. E-posta, şifre ve e-posta doğrulamasını kontrol edin." : "İşlem tamamlanamadı. Bilgilerinizi kontrol edip tekrar deneyin."); }
     finally { setBusy(false); }
   };
-  const social = async (provider: "google" | "lovable") => {
+  const social = async () => {
     setBusy(true); setMessage("");
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
-      if (result.error) throw result.error;
-      if (!result.redirected) onClose();
-    } catch { setMessage("Giriş tamamlanamadı. Tekrar deneyin."); }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
+      });
+      if (error) throw error;
+    } catch { setMessage("Google ile giriş tamamlanamadı. Supabase Google OAuth ayarlarını kontrol edin."); }
     finally { setBusy(false); }
   };
   const field = "h-12 w-full rounded-lg border border-input bg-background px-3 text-foreground";
@@ -51,8 +51,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
       </form>
       {message && <p role="status" className="text-sm text-foreground">{message}</p>}
       {mode !== "forgot" && <div className="space-y-2 border-t border-border pt-4">
-        <Button variant="outline" className="h-12 w-full" disabled={busy} onClick={() => social("google")}>Google ile devam et</Button>
-        <Button className="lovable-auth-button w-full" disabled={busy} onClick={() => social("lovable")}>Continue with Lovable</Button>
+        <Button variant="outline" className="h-12 w-full" disabled={busy} onClick={() => social()}>Google ile devam et</Button>
       </div>}
       <div className="flex flex-wrap justify-center gap-2">
         <Button variant="link" disabled={busy} onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setMessage(""); }}>{mode === "signup" ? "Zaten hesabım var" : "Hesap oluştur"}</Button>
