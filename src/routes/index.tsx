@@ -333,8 +333,9 @@ function Index() {
             <Button asChild className="h-auto w-full rounded-xl bg-accent py-4 text-lg font-bold text-accent-foreground">
               <a href={pdf.url} target="_blank" rel="noopener noreferrer"><FileText />{pdf.format === "PDF" ? "PDF’yi Aç" : "Resmi Aç"}</a>
             </Button>
-            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF olarak indir" : "PNG resim olarak indir"}</Button>
+            <Button variant="outline" onClick={() => (pdf.format === "PDF" ? Promise.resolve(pdf.download(pdf.blob, pdf.name)) : pdf.deliver(pdf.blob, pdf.name)).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF’yi Dosyalar’a indir" : "PNG resim olarak indir"}</Button>
             <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold">Paylaş / Kaydet</Button>
+            {pdf.format === "PDF" && <p className="text-xs text-muted-foreground">WhatsApp’a PDF göndermek için: “PDF’yi Dosyalar’a indir”e basın, sonra WhatsApp’ta + → Belge → Dosyalardan Seç yolunu kullanın. (PDF’yi Aç → Paylaş → Dosyalara Kaydet de aynı sonucu verir.)</p>}
              <Button variant="outline" onClick={() => setPdf(null)} className="h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>
