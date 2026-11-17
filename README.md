@@ -25,12 +25,9 @@ bun run build
 
 ## Supabase yapılandırması
 
-Yerel geliştirmede `.env.local` dosyasına aşağıdaki değişkenleri ekleyin:
+Tarayıcıda kullanılmak üzere Supabase proje adresi ve publishable/anon anahtarı `src/integrations/supabase/config.ts` içinde tanımlıdır. Bunlar herkese açık istemci bilgileridir; veritabanı güvenliği RLS politikalarıyla sağlanmalıdır.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
-
-Yayın ortamında aynı değerler GitHub Actions repository variables olarak tanımlanmalıdır. Yalnızca Supabase publishable/anon anahtarı kullanılmalıdır; service-role anahtarı tarayıcıya veya GitHub Pages'e konulmamalıdır.
+İsteğe bağlı olarak `VITE_SUPABASE_URL` ve `VITE_SUPABASE_PUBLISHABLE_KEY` ortam değişkenleriyle derleme sırasında geçersiz kılınabilir. Service-role/secret anahtarı hiçbir zaman tarayıcıya veya GitHub Pages'e konulmamalıdır.
 
 ## Yayın
 
