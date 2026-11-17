@@ -6,8 +6,8 @@ import type { Project } from "./collector";
 let fontCache: Promise<[ArrayBuffer, ArrayBuffer]> | null = null;
 export function preloadFonts() {
   fontCache ??= Promise.all([
-    fetch("/fonts/DejaVuSans.ttf").then((r) => r.arrayBuffer()),
-    fetch("/fonts/DejaVuSans-Bold.ttf").then((r) => r.arrayBuffer()),
+    fetch(`${import.meta.env.BASE_URL}fonts/DejaVuSans.ttf`).then((r) => r.arrayBuffer()),
+    fetch(`${import.meta.env.BASE_URL}fonts/DejaVuSans-Bold.ttf`).then((r) => r.arrayBuffer()),
   ]);
   return fontCache;
 }
