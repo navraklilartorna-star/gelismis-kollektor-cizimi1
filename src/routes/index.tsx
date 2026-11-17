@@ -334,7 +334,7 @@ function Index() {
               <a href={pdf.url} target="_blank" rel="noopener noreferrer"><FileText />{pdf.format === "PDF" ? "PDF’yi Aç" : "Resmi Aç"}</a>
             </Button>
             <Button variant="outline" onClick={() => (pdf.format === "PDF" ? Promise.resolve(pdf.download(pdf.blob, pdf.name)) : pdf.deliver(pdf.blob, pdf.name)).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF’yi Dosyalar’a indir" : "PNG resim olarak indir"}</Button>
-            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold">{pdf.format === "PDF" ? "WhatsApp / Paylaş" : "Paylaş / Kaydet"}</Button>
+            {pdf.format !== "PDF" && <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold">Paylaş / Kaydet</Button>}
             <Button variant="outline" onClick={() => setPdf(null)} className="h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>
