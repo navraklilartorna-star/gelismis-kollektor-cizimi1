@@ -13,7 +13,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
       if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password` });
         if (error) throw error;
         setMessage("Şifre yenileme bağlantısı için e-postanızı kontrol edin.");
       } else if (mode === "signup") {
