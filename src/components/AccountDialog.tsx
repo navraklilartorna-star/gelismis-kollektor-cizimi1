@@ -17,7 +17,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
         if (error) throw error;
         setMessage("Şifre yenileme bağlantısı için e-postanızı kontrol edin.");
       } else if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` } });
         if (error) throw error;
         if (data.session) onClose();
         else setMessage("Hesabınızı doğrulamak için e-postanıza gelen bağlantıya tıklayın, ardından giriş yapın.");
