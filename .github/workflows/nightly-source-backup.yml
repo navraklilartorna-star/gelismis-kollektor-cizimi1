@@ -1,0 +1,42 @@
+name: Nightly source-code backup
+
+on:
+  schedule:
+    # 00:00 UTC = 03:00 Türkiye time (UTC+3)
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-source-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out complete Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and verify Git bundle
+        run: |
+          set -euo pipefail
+          git bundle create gelismis-kollektor-source.bundle --all
+          git bundle verify gelismis-kollektor-source.bundle
+          sha256sum gelismis-kollektor-source.bundle > SHA256SUMS
+
+      - name: Save backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gelismis-kollektor-kod-yedegi-${{ github.run_id }}
+          path: |
+            gelismis-kollektor-source.bundle
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
