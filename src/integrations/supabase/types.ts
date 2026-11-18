@@ -161,6 +161,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_admin: { Args: never; Returns: boolean }
+      admin_list_firms: {
+        Args: never
+        Returns: {
+          firm_id: string; email: string; provider: string; created_at: string; last_sign_in_at: string | null
+          confirmed: boolean; banned: boolean; project_count: number; collector_count: number; firm_is_admin: boolean
+        }[]
+      }
       save_manufacturing_project: {
         Args: {
           _customer_name: string

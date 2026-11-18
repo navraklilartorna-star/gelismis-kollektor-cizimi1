@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
@@ -73,6 +73,8 @@ function Index() {
   const userId = user?.id;
   const projectsQuery = useQuery({ queryKey: ["collectors", userId], queryFn: () => userId ? listCloudProjects(userId) : Promise.resolve([]), enabled: Boolean(userId), retry: 1 });
   const list = userId ? projectsQuery.data ?? [] : [];
+  const adminQuery = useQuery({ queryKey: ["is-admin", userId], enabled: Boolean(userId), retry: 1, queryFn: async () => { const { data, error } = await supabase.rpc("is_admin"); if (error) throw error; return data === true; } });
+  const isAdmin = Boolean(userId) && adminQuery.data === true;
   const [legacy, setLegacy] = useState<Project[]>([]);
   const [showAccount, setShowAccount] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -242,6 +244,7 @@ function Index() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base">Projeler</Button>
+          {isAdmin && <Button asChild variant="ghost" className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base"><Link to="/admin">Yönetici</Link></Button>}
           <Button variant="ghost" disabled={saving} onClick={startNew} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base">+ Yeni</Button>
           <Button variant="ghost" disabled={!ready || saving} onClick={() => user ? signOut() : setShowAccount(true)} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base"><span key={user ? "out" : "in"}>{user ? "Çıkış yap" : "Giriş yap"}</span></Button>
         </div>
