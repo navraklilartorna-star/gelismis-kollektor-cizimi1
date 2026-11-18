@@ -1,0 +1,70 @@
+name: Nightly Supabase database backup
+
+on:
+  schedule:
+    # 00:00 UTC = 03:00 Türkiye time (UTC+3)
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-supabase-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify secret and target project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SUPABASE_DB_URL}" ]]; then
+            echo "Missing GitHub Actions secret: SUPABASE_DB_URL" >&2
+            exit 1
+          fi
+          case "${SUPABASE_DB_URL}" in
+            *qouuzivadsnxxbgukcmx*) ;;
+            *)
+              echo "The connection string does not appear to target the expected Supabase project." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Export database roles, schema, and data
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f data.sql --data-only --use-copy -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          sha256sum roles.sql schema.sql data.sql > SHA256SUMS
+          test -s roles.sql
+          test -s schema.sql
+          test -s data.sql
+
+      - name: Save private backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-database-backup-${{ github.run_id }}
+          path: |
+            roles.sql
+            schema.sql
+            data.sql
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
