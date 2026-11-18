@@ -1,0 +1,87 @@
+name: Nightly encrypted backup
+
+on:
+  schedule:
+    # 00:00 UTC = 03:00 Türkiye time (UTC+3)
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out complete Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate required secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL" || { echo "::error::Missing SUPABASE_DB_URL repository secret"; exit 1; }
+          test -n "$BACKUP_ENCRYPTION_PASSPHRASE" || { echo "::error::Missing BACKUP_ENCRYPTION_PASSPHRASE repository secret"; exit 1; }
+
+      - name: Create source-code backup
+        run: |
+          set -euo pipefail
+          git bundle create navraklilar-source.bundle --all
+          git bundle verify navraklilar-source.bundle
+
+      - name: Export and encrypt Supabase database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          docker run --rm \
+            -v "$PWD:/backup" \
+            -w /backup \
+            -e SUPABASE_DB_URL \
+            postgres:17-alpine \
+            sh -euc 'pg_dump "$SUPABASE_DB_URL" --no-owner --no-acl --format=custom --file=/backup/supabase.dump && pg_restore --list /backup/supabase.dump >/backup/restore-check.txt'
+
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_ENCRYPTION_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 \
+            --output supabase.dump.gpg supabase.dump
+
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_ENCRYPTION_PASSPHRASE" \
+            --decrypt supabase.dump.gpg > supabase-verify.dump
+
+          docker run --rm \
+            -v "$PWD:/backup" \
+            -w /backup \
+            postgres:17-alpine \
+            pg_restore --list /backup/supabase-verify.dump >/dev/null
+
+          rm -f supabase.dump supabase-verify.dump restore-check.txt
+
+      - name: Create checksums
+        run: |
+          set -euo pipefail
+          sha256sum navraklilar-source.bundle supabase.dump.gpg > SHA256SUMS
+
+      - name: Upload verified backup (encrypted database)
+        uses: actions/upload-artifact@v4
+        with:
+          name: navraklilar-gece-yedegi-${{ github.run_id }}
+          path: |
+            navraklilar-source.bundle
+            supabase.dump.gpg
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
