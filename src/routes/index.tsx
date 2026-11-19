@@ -154,8 +154,19 @@ function Index() {
     setDrafts(Object.fromEntries(copies.filter((c) => c !== chosen).map((c) => [c.project.id, { project: c.project, nums: numsOf(c.project) }])));
     setSessionIds(copies.map((c) => c.project.id));
     openProject(chosen.project);
-    flash("Kopya olarak açıldı. Kaydederseniz yönetici hesabınıza yeni kayıt olur; firmanın kaydı değişmez.");
   };
+  // Yönetici panelinden "Aç" ile gelen kayıt (sessionStorage), liste yüklenince açılır.
+  useEffect(() => {
+    if (!isAdmin || !othersQuery.isSuccess) return;
+    let wanted: { ownerId: string; id: string } | null = null;
+    try { const raw = sessionStorage.getItem("admin-open"); if (raw) { wanted = JSON.parse(raw); sessionStorage.removeItem("admin-open"); } } catch { /* yok say */ }
+    if (!wanted) return;
+    const hit = othersQuery.data.find((x) => x.ownerId === wanted!.ownerId && x.project.id === wanted!.id);
+    if (!hit) return;
+    const mine = othersQuery.data.filter((x) => x.ownerId === hit.ownerId);
+    openFirmCopy(hit.project.batchId ? mine.filter((i) => i.project.batchId === hit.project.batchId).sort((a, b) => (a.project.batchPosition ?? 0) - (b.project.batchPosition ?? 0)) : [hit], hit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, othersQuery.isSuccess, othersQuery.data]);
   const startNew = () => { if (saveLock.current) return; setActiveBatch(null); setDrafts({}); setSessionIds([]); setPdf(null); openProject(newProject()); };
   const save = async (): Promise<boolean> => {
     if (!ok) { flash("Önce hataları düzeltin"); return false; }

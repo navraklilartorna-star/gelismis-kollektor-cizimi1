@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
@@ -18,6 +18,8 @@ const date = (v: string | number | null) => v ? new Date(v).toLocaleString("tr-T
 function AdminPage() {
   const { user, ready } = useAccount();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const openRecord = (r: Rec) => { if (!open) return; try { sessionStorage.setItem("admin-open", JSON.stringify({ ownerId: open.firm_id, id: r.id })); } catch { /* yok say */ } void navigate({ to: "/" }); };
   const [open, setOpen] = useState<Firm | null>(null);
   const [error, setError] = useState("");
   // Yetki kararı veritabanından gelir (is_admin); arayüz yalnızca sonucu gösterir.
@@ -60,7 +62,7 @@ function AdminPage() {
       <ul className="space-y-2">{records.data?.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
         <div className="min-w-0"><p className="break-words font-semibold">{r.customer_name}{r.project_title ? ` – ${r.project_title}` : ""}</p>
           <p className="text-xs text-muted-foreground">{r.main_size}" ana boru · {r.outlet_count} çıkış ({r.out_size}) · {r.quantity} adet · {r.production_date || "tarihsiz"} · güncelleme {date(r.updated_at)}</p></div>
-        <Button variant="outline" onClick={() => remove(r)}>Sil</Button></li>)}</ul>
+        <div className="flex gap-2"><Button onClick={() => openRecord(r)}>Aç</Button><Button variant="outline" onClick={() => remove(r)}>Sil</Button></div></li>)}</ul>
     </section>}
   </main>;
 }
