@@ -144,6 +144,18 @@ function Index() {
     setActiveBatch({ id: items[0]?.projectId ?? items[0]?.batchId ?? crypto.randomUUID(), ids: items.map((x) => x.id) });
     setDrafts({}); setSessionIds(items.map((x) => x.id)); openProject(selected);
   };
+  // Başka firmanın kaydı yönetici hesabına KOPYA olarak açılır (yeni kimlikler); firmanın kaydı hiçbir zaman değişmez.
+  const openFirmCopy = (items: FirmProject[], selected: FirmProject) => {
+    if (saveLock.current) return;
+    const copies = items.map((x) => { const { batchId: _b, batchSavedAt: _s, batchPosition: _p, projectId: _j, ...rest } = x.project; void _b; void _s; void _p; void _j; return { src: x.project.id, project: { ...rest, id: crypto.randomUUID() } as Project }; });
+    const chosen = copies.find((c) => c.src === selected.project.id) ?? copies[0];
+    const numsOf = (item: Project) => ({ count: String(item.count), spacing: String(item.spacing), start: String(item.start), end: String(item.end), quantity: String(item.quantity) });
+    setActiveBatch(null);
+    setDrafts(Object.fromEntries(copies.filter((c) => c !== chosen).map((c) => [c.project.id, { project: c.project, nums: numsOf(c.project) }])));
+    setSessionIds(copies.map((c) => c.project.id));
+    openProject(chosen.project);
+    flash("Kopya olarak açıldı. Kaydederseniz yönetici hesabınıza yeni kayıt olur; firmanın kaydı değişmez.");
+  };
   const startNew = () => { if (saveLock.current) return; setActiveBatch(null); setDrafts({}); setSessionIds([]); setPdf(null); openProject(newProject()); };
   const save = async (): Promise<boolean> => {
     if (!ok) { flash("Önce hataları düzeltin"); return false; }
@@ -389,7 +401,7 @@ function Index() {
                   <AccordionTrigger className="gap-3 text-base"><span className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-accent" /><span className="break-all text-left">{email}</span></span><span className="ml-auto shrink-0 text-sm text-muted-foreground">{items.length} kollektör</span></AccordionTrigger>
                   <AccordionContent className="space-y-1">
                     {items.map((x) => <div key={x.project.id} className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1 px-2 text-left"><p className="break-words font-semibold">{x.project.customerName}</p><p className="text-xs text-muted-foreground">Ø{x.project.mainSize}″ • {x.project.count} çıkış • {x.project.quantity} adet • {LAYOUT_LABELS[x.project.layout]} • {x.project.date}</p></div>
+                      <Button disabled={saving} variant="ghost" className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left" title="Kopya olarak aç" onClick={() => openFirmCopy(x.project.batchId ? items.filter((i) => i.project.batchId === x.project.batchId).sort((a, b) => (a.project.batchPosition ?? 0) - (b.project.batchPosition ?? 0)) : [x], x)}><span className="break-words font-semibold">{x.project.customerName}</span><span className="text-xs text-muted-foreground">Ø{x.project.mainSize}″ • {x.project.count} çıkış • {x.project.quantity} adet • {LAYOUT_LABELS[x.project.layout]} • {x.project.date}</span></Button>
                       <Button disabled={saving} variant="ghost" size="icon" onClick={() => void removeFirmRecord(x)} aria-label="Firma kaydını sil" title="Kaydı sil" className="shrink-0 text-destructive"><X /></Button>
                     </div>)}
                   </AccordionContent>
