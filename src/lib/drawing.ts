@@ -117,20 +117,24 @@ function advancedDrawingPages(p: Project): Prim[][] {
     if (kind === "male" || kind === "socket") {
       const length = 25, sx = i === 0 ? x - length : x;
       pipe(sx, y - diameter / 2, length, diameter);
+      const sameSize = kind === "socket" && setting.size === p.mainSize;
       if (kind === "socket") {
-        pipe(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3);
-        line(sx + 3, y - diameter * 0.65, sx + 3, y + diameter * 0.65, EDGE);
-        line(sx + length - 3, y - diameter * 0.65, sx + length - 3, y + diameter * 0.65, EDGE);
-        socketThread(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3, false);
+        // Ana boruyla aynı ölçüde maşon: dış çap ana boruyla birebir eşit; farklı ölçüde mevcut büyütme (1.3x) korunur.
+        const k = sameSize ? 0.5 : 0.65;
+        pipe(sx - 2, y - diameter * k, length + 4, diameter * k * 2);
+        line(sx + 3, y - diameter * k, sx + 3, y + diameter * k, EDGE);
+        line(sx + length - 3, y - diameter * k, sx + length - 3, y + diameter * k, EDGE);
+        socketThread(sx - 2, y - diameter * k, length + 4, diameter * k * 2, false);
       } else thread(sx, y - diameter / 2, length, diameter, false);
     }
-    if (kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 22, inchLabel(kind === "open" ? p.mainSize : setting.size), 26, INK, i === 0 ? "end" : "start");
-    const label = i === 0 ? "GİRİŞ" : "ÇIKIŞ";
-    text(x, y + Math.max(ph / 2, kind === "flanged" ? diameter : diameter * 0.65, 20) + 28, label, 19, INK, i === 0 ? "end" : "start");
-    // Bağlantı tipi: seçime göre otomatik (Kapalı / Açık / Dişli / Maşonlu / Flanşlı), ucun hemen yanında.
-    const reach = kind === "male" || kind === "socket" ? 27 : kind === "flanged" ? 5 : kind === "closed" ? 3 : 0;
+    // Bağlantı bilgisi (ölçü + tür) ucun hemen yanında tek satırda: örn. 4 ″ MAŞONLU. Yukarı çıkışların yanına ölçü yazılmaz.
     const typeLabel = END_LABELS[kind].replace(/\s*\(.*\)\s*$/, "").toLocaleUpperCase("tr-TR");
-    text(i === 0 ? x - reach - 8 : x + reach + 8, y + 5, typeLabel, 15, INK, i === 0 ? "end" : "start");
+    const info = kind === "closed" ? typeLabel : `${inchLabel(kind === "open" ? p.mainSize : setting.size)} ${typeLabel}`;
+    // Bağlantının hemen üstünde, ucun dışına doğru uzanır (çıkışlarla çakışmaz).
+    const topEdge = Math.max(ph / 2 + 3, kind === "flanged" ? diameter : kind === "socket" ? diameter * (setting.size === p.mainSize ? 0.5 : 0.65) : diameter / 2);
+    const room = i === 0 ? x - 4 - 14 : W - 14 - (x + 4);
+    const fsEnd = Math.max(10, Math.min(17, room / (info.length * 0.74)));
+    text(i === 0 ? x - 4 : x + 4, y - topEdge - 12, info, fsEnd, INK, i === 0 ? "end" : "start");
   });
   let bottomEdge = y + ph/2;
   for (const side of ["top","bottom"] as const) {
