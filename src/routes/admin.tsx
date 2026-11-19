@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import { rankItems } from "@/lib/search";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,11 @@ function AdminPage() {
     const { data, error } = await supabase.from("collector_projects").select("id,customer_name,project_title,main_size,out_size,outlet_count,quantity,production_date,updated_at").eq("user_id", open!.firm_id).order("updated_at", { ascending: false });
     if (error) throw error; return data as Rec[];
   } });
+  const [q, setQ] = useState("");
+  const dq = useDeferredValue(q);
+  const shownFirms = useMemo(() => rankItems(firms.data ?? [], dq, (f) => [f.email]), [firms.data, dq]);
+  const shownRecords = useMemo(() => rankItems(records.data ?? [], dq, (r) => [r.customer_name, r.project_title], (r) => [r.main_size, r.production_date]), [records.data, dq]);
+  const searchBox = <input type="search" autoComplete="off" aria-label="Ara" placeholder={open ? "Müşteri ara…" : "Firma (e-posta) ara…"} value={q} onChange={(e) => setQ(e.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground" />;
   const remove = async (r: Rec) => {
     if (!open || !window.confirm(`“${r.customer_name}” kaydı ${open.email} hesabından kalıcı olarak silinsin mi?`)) return;
     setError("");
@@ -45,21 +51,24 @@ function AdminPage() {
     <div className="flex flex-wrap items-center justify-between gap-2"><h1 className="text-2xl font-bold">Yönetici Paneli</h1>{back}</div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!open ? <section className="space-y-2">
-      <h2 className="text-lg font-semibold">Firmalar ({firms.data?.length ?? 0})</h2>
+      <h2 className="text-lg font-semibold">Firmalar ({dq.trim() ? `${shownFirms.length} / ` : ""}{firms.data?.length ?? 0})</h2>
+      {searchBox}
+      {dq.trim() && firms.isSuccess && shownFirms.length === 0 && <p className="text-sm text-muted-foreground">Eşleşen firma bulunamadı.</p>}
       {firms.isPending && <p role="status">Firmalar yükleniyor…</p>}
       {firms.isError && <p role="alert">Firma listesi yüklenemedi.</p>}
-      <ul className="space-y-2">{firms.data?.map((f) => <li key={f.firm_id} className="rounded-lg border border-border bg-card p-3">
+      <ul className="space-y-2">{shownFirms.map((f) => <li key={f.firm_id} className="rounded-lg border border-border bg-card p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0"><p className="break-all font-semibold">{f.email}{f.firm_is_admin ? " · Yönetici" : ""}</p>
             <p className="text-xs text-muted-foreground">{f.provider} · {f.confirmed ? "doğrulandı" : "doğrulanmadı"}{f.banned ? " · engelli" : ""} · son giriş {date(f.last_sign_in_at)}</p></div>
-          <div className="flex items-center gap-3"><span className="text-sm font-semibold">{f.collector_count} kayıt</span><Button variant="outline" onClick={() => { setOpen(f); setError(""); }}>Kayıtları gör</Button></div>
+          <div className="flex items-center gap-3"><span className="text-sm font-semibold">{f.collector_count} kayıt</span><Button variant="outline" onClick={() => { setOpen(f); setError(""); setQ(""); }}>Kayıtları gör</Button></div>
         </div></li>)}</ul>
     </section> : <section className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="break-all text-lg font-semibold">{open.email} – kayıtlar</h2><Button variant="outline" onClick={() => setOpen(null)}>Firma listesine dön</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="break-all text-lg font-semibold">{open.email} – kayıtlar</h2><Button variant="outline" onClick={() => { setOpen(null); setQ(""); }}>Firma listesine dön</Button></div>
+      {searchBox}
       {records.isPending && <p role="status">Kayıtlar yükleniyor…</p>}
       {records.isError && <p role="alert">Kayıtlar yüklenemedi.</p>}
       {records.isSuccess && records.data.length === 0 && <p className="text-muted-foreground">Bu firmanın kaydı yok.</p>}
-      <ul className="space-y-2">{records.data?.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+      <ul className="space-y-2">{shownRecords.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
         <div className="min-w-0"><p className="break-words font-semibold">{r.customer_name}{r.project_title ? ` – ${r.project_title}` : ""}</p>
           <p className="text-xs text-muted-foreground">{r.main_size}" ana boru · {r.outlet_count} çıkış ({r.out_size}) · {r.quantity} adet · {r.production_date || "tarihsiz"} · güncelleme {date(r.updated_at)}</p></div>
         <div className="flex gap-2"><Button onClick={() => openRecord(r)}>Aç</Button><Button variant="outline" onClick={() => remove(r)}>Sil</Button></div></li>)}</ul>

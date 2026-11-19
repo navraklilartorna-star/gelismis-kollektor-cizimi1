@@ -117,3 +117,41 @@ export async function deleteFirmProject(ownerId: string, id: string) {
   const { error } = await supabase.from("collector_projects").delete().eq("user_id", ownerId).eq("id", id);
   if (error) throw new Error("Kayıt silinemedi. Tekrar deneyin.");
 }
+
+/**
+ * Yalnızca yönetici: bir firmanın projesini YENİ KAYIT AÇMADAN o firmanın hesabına kaydeder.
+ * Yetkiyi veritabanı denetler (yöneticiye özel RLS politikaları); yönetici olmayan kullanıcıda her adım reddedilir.
+ * Sıra: müşteri → proje → kollektör satırları (tek istek) → çıkarılanları sil.
+ */
+export async function saveFirmBatch(projects: Project[], ownerId: string, removedIds: string[]): Promise<Project[]> {
+  const first = projects[0];
+  if (!first?.batchId) throw new Error("Proje kimliği eksik.");
+  for (const p of projects) { const errors = validate(p); if (errors.length) throw new Error(errors[0]); }
+  const projectId = first.projectId ?? first.batchId;
+  const title = first.projectTitle?.trim() || "Kollektör projesi";
+  const label = customerLabel(first.customerName);
+  const fail = () => new Error("Firma kaydı güncellenemedi. Ölçüleriniz korunuyor; tekrar deneyin.");
+  const { data: existingCustomer, error: findError } = await supabase.from("manufacturing_customers").select("id").eq("user_id", ownerId).eq("name", label).maybeSingle();
+  if (findError) throw fail();
+  let customerId = existingCustomer?.id;
+  if (!customerId) {
+    const { data, error } = await supabase.from("manufacturing_customers").insert({ user_id: ownerId, name: label, name_key: label.toLowerCase() }).select("id").single();
+    if (error || !data) throw fail();
+    customerId = data.id;
+  }
+  const { data: project, error: projectFindError } = await supabase.from("manufacturing_projects").select("id").eq("id", projectId).eq("user_id", ownerId).maybeSingle();
+  if (projectFindError) throw fail();
+  const stamp = first.updatedAt;
+  const write = project
+    ? await supabase.from("manufacturing_projects").update({ customer_id: customerId, title, updated_at: stamp }).eq("id", projectId).eq("user_id", ownerId)
+    : await supabase.from("manufacturing_projects").insert({ id: projectId, user_id: ownerId, customer_id: customerId, title, updated_at: stamp });
+  if (write.error) throw fail();
+  const { data, error } = await supabase.from("collector_projects")
+    .upsert(projects.map((x) => ({ ...projectRow(x, ownerId), manufacturing_project_id: projectId, project_title: title })), { onConflict: "user_id,id" }).select();
+  if (error || !data || data.length !== projects.length) throw fail();
+  if (removedIds.length) {
+    const { error: delError } = await supabase.from("collector_projects").delete().eq("user_id", ownerId).eq("manufacturing_project_id", projectId).in("id", removedIds);
+    if (delError) throw new Error("Kayıt güncellendi ancak çıkarılan kollektörler silinemedi. Tekrar kaydedin.");
+  }
+  return data.map(rowProject).sort((a, b) => (a.batchPosition ?? 0) - (b.batchPosition ?? 0));
+}
