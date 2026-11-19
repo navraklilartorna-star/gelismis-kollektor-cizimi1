@@ -96,3 +96,24 @@ export async function updateCloudBatch(projects: Project[], userId: string, remo
   }
   return data.map(rowProject).sort((a, b) => (a.batchPosition ?? 0) - (b.batchPosition ?? 0));
 }
+export type FirmProject = { ownerId: string; ownerEmail: string; project: Project };
+
+/** Yalnızca yönetici: diğer firmaların kayıtları ve sahipleri. Yetkiyi veritabanı (RLS) denetler. */
+export async function listOtherFirmProjects(userId: string): Promise<FirmProject[]> {
+  const { data: firms, error: firmError } = await supabase.rpc("admin_list_firms");
+  if (firmError) throw new Error("Firma listesi yüklenemedi.");
+  const emails = new Map((firms ?? []).map((f) => [f.firm_id, f.email]));
+  const out: FirmProject[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await supabase.from("collector_projects").select("*").neq("user_id", userId)
+      .order("updated_at", { ascending: false }).order("id").range(offset, offset + 499);
+    if (error) throw new Error("Diğer firmaların kayıtları yüklenemedi.");
+    for (const row of data ?? []) { try { out.push({ ownerId: row.user_id, ownerEmail: emails.get(row.user_id) ?? "bilinmeyen firma", project: rowProject(row) }); } catch { /* bozuk kayıt listeyi durdurmasın */ } }
+    if (!data || data.length < 500) return out;
+  }
+}
+
+export async function deleteFirmProject(ownerId: string, id: string) {
+  const { error } = await supabase.from("collector_projects").delete().eq("user_id", ownerId).eq("id", id);
+  if (error) throw new Error("Kayıt silinemedi. Tekrar deneyin.");
+}

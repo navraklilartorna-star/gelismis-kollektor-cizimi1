@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
 import { AccountDialog } from "@/components/AccountDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject } from "@/lib/cloud-projects";
+import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject, listOtherFirmProjects, deleteFirmProject, type FirmProject } from "@/lib/cloud-projects";
 import { BranchEditor } from "@/components/BranchEditor";
 import { MainEndEditor } from "@/components/MainEndEditor";
 import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
@@ -75,6 +75,12 @@ function Index() {
   const list = userId ? projectsQuery.data ?? [] : [];
   const adminQuery = useQuery({ queryKey: ["is-admin", userId], enabled: Boolean(userId), retry: 1, queryFn: async () => { const { data, error } = await supabase.rpc("is_admin"); if (error) throw error; return data === true; } });
   const isAdmin = Boolean(userId) && adminQuery.data === true;
+  const othersQuery = useQuery({ queryKey: ["other-firms", userId], enabled: isAdmin && Boolean(userId), retry: 1, queryFn: () => listOtherFirmProjects(userId!) });
+  const otherGroups = useMemo(() => { const m = new Map<string, FirmProject[]>(); for (const x of othersQuery.data ?? []) m.set(x.ownerEmail, [...(m.get(x.ownerEmail) ?? []), x]); return [...m.entries()]; }, [othersQuery.data]);
+  const removeFirmRecord = async (x: FirmProject) => {
+    if (!window.confirm(`${x.ownerEmail} firmasına ait “${x.project.customerName}” kaydı kalıcı olarak silinsin mi?`)) return;
+    try { await deleteFirmProject(x.ownerId, x.project.id); await queryClient.invalidateQueries({ queryKey: ["other-firms"] }); } catch { flash("Kayıt silinemedi."); }
+  };
   const [legacy, setLegacy] = useState<Project[]>([]);
   const [showAccount, setShowAccount] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -373,6 +379,23 @@ function Index() {
                 </AccordionContent>
               </AccordionItem>)}
             </Accordion>
+            {isAdmin && <div className="space-y-2 border-t border-border pt-3">
+              <h3 className="font-bold">Diğer firmaların kayıtları</h3>
+              {othersQuery.isPending && <p role="status">Yükleniyor…</p>}
+              {othersQuery.isError && <p role="alert">Diğer firmaların kayıtları yüklenemedi.</p>}
+              {othersQuery.isSuccess && otherGroups.length === 0 && <p className="text-sm text-muted-foreground">Başka firmaya ait kayıt yok.</p>}
+              <Accordion type="multiple" className="w-full">
+                {otherGroups.map(([email, items]) => <AccordionItem key={email} value={email}>
+                  <AccordionTrigger className="gap-3 text-base"><span className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-accent" /><span className="break-all text-left">{email}</span></span><span className="ml-auto shrink-0 text-sm text-muted-foreground">{items.length} kollektör</span></AccordionTrigger>
+                  <AccordionContent className="space-y-1">
+                    {items.map((x) => <div key={x.project.id} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 px-2 text-left"><p className="break-words font-semibold">{x.project.customerName}</p><p className="text-xs text-muted-foreground">Ø{x.project.mainSize}″ • {x.project.count} çıkış • {x.project.quantity} adet • {LAYOUT_LABELS[x.project.layout]} • {x.project.date}</p></div>
+                      <Button disabled={saving} variant="ghost" size="icon" onClick={() => void removeFirmRecord(x)} aria-label="Firma kaydını sil" title="Kaydı sil" className="shrink-0 text-destructive"><X /></Button>
+                    </div>)}
+                  </AccordionContent>
+                </AccordionItem>)}
+              </Accordion>
+            </div>}
             <Button variant="outline" onClick={() => setShowList(false)} className="mt-2 h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>
