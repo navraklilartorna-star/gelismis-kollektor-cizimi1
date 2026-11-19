@@ -1,4 +1,4 @@
-import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm } from "./collector";
+import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm, END_LABELS } from "./collector";
 import { logoUrl } from "@/assets/logo";
 
 export const W = 1000;
@@ -54,6 +54,7 @@ function advancedDrawingPages(p: Project): Prim[][] {
     { t: "text", x: 30, y: 88, s: 14, text: `Tarih: ${p.date} • cm / inç`, bold: true, c: INK },
     { t: "text", x: 835, y: 152, s: 40, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "middle" },
   ];
+  const headerCount = out.length;
   const line = (x1: number, y1: number, x2: number, y2: number, c = INK, w = 1.5) => out.push({ t: "line", x1, y1, x2, y2, c, w });
   const text = (x: number, y: number, value: string, s = 14, c = INK, anchor: "start" | "middle" | "end" = "middle") => out.push({ t: "text", x, y, text: value, s, c, anchor, bold: true });
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*7,y-3.5],[x+dir*7,y+3.5]], fill: DIM });
@@ -124,8 +125,12 @@ function advancedDrawingPages(p: Project): Prim[][] {
       } else thread(sx, y - diameter / 2, length, diameter, false);
     }
     if (kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 22, inchLabel(kind === "open" ? p.mainSize : setting.size), 26, INK, i === 0 ? "end" : "start");
-    const label = kind === "closed" ? "KAPALI" : i === 0 ? "GİRİŞ" : "ÇIKIŞ";
+    const label = i === 0 ? "GİRİŞ" : "ÇIKIŞ";
     text(x, y + Math.max(ph / 2, kind === "flanged" ? diameter : diameter * 0.65, 20) + 28, label, 19, INK, i === 0 ? "end" : "start");
+    // Bağlantı tipi: seçime göre otomatik (Kapalı / Açık / Dişli / Maşonlu / Flanşlı), ucun hemen yanında.
+    const reach = kind === "male" || kind === "socket" ? 27 : kind === "flanged" ? 5 : kind === "closed" ? 3 : 0;
+    const typeLabel = END_LABELS[kind].replace(/\s*\(.*\)\s*$/, "").toLocaleUpperCase("tr-TR");
+    text(i === 0 ? x - reach - 8 : x + reach + 8, y + 5, typeLabel, 15, INK, i === 0 ? "end" : "start");
   });
   let bottomEdge = y + ph/2;
   for (const side of ["top","bottom"] as const) {
@@ -188,6 +193,23 @@ function advancedDrawingPages(p: Project): Prim[][] {
   line(x0,totY,x1,totY,DIM,1.4);arrow(x0,totY,1);arrow(x1,totY,-1);
   out.push({t:"rect",x:430,y:totY-13,w:140,h:17,fill:"#ffffff"});
   text(500,totY+1,`TOPLAM ${fmt(total)} cm`,15,DIM);
+  // Çizimin tamamı (yalnızca dikey konum) biraz aşağı alınır: ADET yazısıyla çakışmaz, alt boşluk dengelenir.
+  // Oranlar, ölçüler ve hesaplar değişmez; her öğe aynı miktarda kaydırılır.
+  const extent = (pr: Prim): [number, number] => {
+    if (pr.t === "line") return [Math.min(pr.y1, pr.y2), Math.max(pr.y1, pr.y2)];
+    if (pr.t === "rect" || pr.t === "image") return [pr.y, pr.y + pr.h];
+    if (pr.t === "poly") { const ys = pr.pts.map((q) => q[1]); return [Math.min(...ys), Math.max(...ys)]; }
+    if (pr.t === "texts") { const sz = Math.max(...pr.parts.map((q) => q.s)); return [pr.y - sz * 1.6, pr.y + sz * 1.1]; }
+    return [pr.y - pr.s * 0.8, pr.y + pr.s * 0.25];
+  };
+  const content = out.slice(headerCount).map(extent);
+  const top = Math.min(...content.map((e) => e[0])), bottom = Math.max(...content.map((e) => e[1]));
+  const minTop = 172, maxBottom = 672;
+  const dy = Math.max(0, Math.min(Math.max(minTop - top, Math.min(0.6 * ((minTop + maxBottom) / 2 - (top + bottom) / 2), 90)), maxBottom - bottom));
+  if (dy > 0) for (let k = headerCount; k < out.length; k++) {
+    const pr = out[k]!;
+    out[k] = pr.t === "line" ? { ...pr, y1: pr.y1 + dy, y2: pr.y2 + dy } : pr.t === "poly" ? { ...pr, pts: pr.pts.map(([qx, qy]): [number, number] => [qx, qy + dy]) } : { ...pr, y: pr.y + dy };
+  }
   if (p.notes.trim()) out.push({t:"text",x:30,y:686,s:10,text:`Not: ${p.notes.replace(/\s+/g," ").slice(0,180)}`,bold:true,c:INK});
   return [out];
 }
