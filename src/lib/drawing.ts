@@ -191,10 +191,13 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const mainLabelWidth = mainLabel.length * 28 * CHAR_W + 16;
   out.push({t:"rect",x:500-mainLabelWidth/2,y:y-18,w:mainLabelWidth,h:36,fill:PIPE});
   text(500,y+10,mainLabel,28);
+  // Başlangıç ölçüsünün referansı: soldaki bağlantının (erkek diş / maşon / flanş) en dış ucu. Çıkış konumları ve aralıklar değişmez.
+  const leftKind = mainEndKind(p, "left"), refX = x0 - (leftKind === "male" ? 25 : leftKind === "socket" ? 27 : leftKind === "flanged" ? 5 : 0);
+  const dimX = (cm: number) => cm === 0 ? refX : x0 + cm * scale;
   const positions=[...new Set([0,...rows.map(r=>r.position),total])].sort((a,b)=>a-b), dimY = bottomEdge + 16, totY = dimY + 24;
-  positions.forEach(cm=>{const x=x0+cm*scale;line(x,dimY-8,x,totY+4,DIM,0.6);});
-  positions.slice(1).forEach((cm,i)=>{const prev=positions[i];if(prev===undefined || cm<=prev)return;const a=x0+prev*scale,z=x0+cm*scale;line(a,dimY,z,dimY,DIM,1.2);if(z-a>16){arrow(a,dimY,1);arrow(z,dimY,-1);text((a+z)/2,dimY-4,fmt(cm-prev),z-a>28?12:9,DIM);}});
-  line(x0,totY,x1,totY,DIM,1.4);arrow(x0,totY,1);arrow(x1,totY,-1);
+  positions.forEach(cm=>{const x=dimX(cm);line(x,dimY-8,x,totY+4,DIM,0.6);});
+  positions.slice(1).forEach((cm,i)=>{const prev=positions[i];if(prev===undefined || cm<=prev)return;const a=dimX(prev),z=dimX(cm);line(a,dimY,z,dimY,DIM,1.2);if(z-a>16){arrow(a,dimY,1);arrow(z,dimY,-1);text((a+z)/2,dimY-4,fmt(cm-prev),z-a>28?12:9,DIM);}});
+  line(refX,totY,x1,totY,DIM,1.4);arrow(refX,totY,1);arrow(x1,totY,-1);
   out.push({t:"rect",x:430,y:totY-13,w:140,h:17,fill:"#ffffff"});
   text(500,totY+1,`TOPLAM ${fmt(total)} cm`,15,DIM);
   // Çizimin tamamı (yalnızca dikey konum) biraz aşağı alınır: ADET yazısıyla çakışmaz, alt boşluk dengelenir.
