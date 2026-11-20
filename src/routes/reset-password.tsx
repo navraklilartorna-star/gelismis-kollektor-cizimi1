@@ -19,7 +19,12 @@ function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [message, setMessage] = useState("");
-  useEffect(() => { setRecovery(new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery"); }, []);
+  useEffect(() => {
+    setRecovery(new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery");
+    // Supabase bağlantıdaki parametreleri hemen temizleyebilir; bu olay yarışı önler.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => { if (event === "PASSWORD_RECOVERY") setRecovery(true); });
+    return () => subscription.unsubscribe();
+  }, []);
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (!recovery) return;
     setBusy(true);

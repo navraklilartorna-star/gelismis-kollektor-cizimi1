@@ -5,7 +5,7 @@ const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "
 const dataUrl = (blob: Blob): Promise<string> => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(blob); });
 export async function makePng(project: Project): Promise<Blob> {
   const fonts = await Promise.all(["DejaVuSans.ttf", "DejaVuSans-Bold.ttf"].map(async name => {
-    const r = await fetch(`/fonts/${name}`); if (!r.ok) throw new Error("Yazı tipi yüklenemedi"); return dataUrl(await r.blob());
+    const r = await fetch(`${import.meta.env.BASE_URL}fonts/${name}`); if (!r.ok) throw new Error("Yazı tipi yüklenemedi"); return dataUrl(await r.blob());
   }));
   const primitives = buildDrawingPages(project)[0] ?? [];
   const images = new Map<string, string>();

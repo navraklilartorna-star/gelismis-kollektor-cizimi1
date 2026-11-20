@@ -1,5 +1,5 @@
-import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm } from "./collector";
-import logo from "@/assets/navraklilar-logo.png.asset.json";
+import { computeLayout, fmt, inchFlat, LAYOUT_LABELS, manufacturingRows, normalizeProject, type Project, mainEndKind, mainEndSetting, pipeDiameterMm, END_LABELS } from "./collector";
+import { logoUrl } from "@/assets/logo";
 
 export const W = 1000;
 export const H = 707;
@@ -50,10 +50,11 @@ function advancedDrawingPages(p: Project): Prim[][] {
     { t: "rect", x: 8, y: 8, w: W - 16, h: H - 16, stroke: INK, sw: 2 },
     { t: "text", x: 30, y: 40, s: Math.min(24, 550 / Math.max(1, p.customerName.length * 0.65)), text: p.customerName.trim() || "İsimsiz Müşteri", bold: true, c: INK },
     { t: "text", x: 30, y: 64, s: 12, text: `${LAYOUT_LABELS[p.layout]} • ${p.count} çıkış`, bold: true, c: INK },
-    { t: "image", x: 700, y: 20, w: 270, h: 90, src: logo.url },
+    { t: "image", x: 700, y: 20, w: 270, h: 90, src: logoUrl },
     { t: "text", x: 30, y: 88, s: 14, text: `Tarih: ${p.date} • cm / inç`, bold: true, c: INK },
-    { t: "text", x: 835, y: 152, s: 40, text: `ADET: ${p.quantity}`, bold: true, c: INK },
+    { t: "text", x: 835, y: 152, s: 40, text: `ADET: ${p.quantity}`, bold: true, c: INK, anchor: "middle" },
   ];
+  const headerCount = out.length;
   const line = (x1: number, y1: number, x2: number, y2: number, c = INK, w = 1.5) => out.push({ t: "line", x1, y1, x2, y2, c, w });
   const text = (x: number, y: number, value: string, s = 14, c = INK, anchor: "start" | "middle" | "end" = "middle") => out.push({ t: "text", x, y, text: value, s, c, anchor, bold: true });
   const arrow = (x: number, y: number, dir: number) => out.push({ t: "poly", pts: [[x,y],[x+dir*7,y-3.5],[x+dir*7,y+3.5]], fill: DIM });
@@ -116,16 +117,24 @@ function advancedDrawingPages(p: Project): Prim[][] {
     if (kind === "male" || kind === "socket") {
       const length = 25, sx = i === 0 ? x - length : x;
       pipe(sx, y - diameter / 2, length, diameter);
+      const sameSize = kind === "socket" && setting.size === p.mainSize;
       if (kind === "socket") {
-        pipe(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3);
-        line(sx + 3, y - diameter * 0.65, sx + 3, y + diameter * 0.65, EDGE);
-        line(sx + length - 3, y - diameter * 0.65, sx + length - 3, y + diameter * 0.65, EDGE);
-        socketThread(sx - 2, y - diameter * 0.65, length + 4, diameter * 1.3, false);
+        // Ana boruyla aynı ölçüde maşon: dış çap ana boruyla birebir eşit; farklı ölçüde mevcut büyütme (1.3x) korunur.
+        const k = sameSize ? 0.5 : 0.65;
+        pipe(sx - 2, y - diameter * k, length + 4, diameter * k * 2);
+        line(sx + 3, y - diameter * k, sx + 3, y + diameter * k, EDGE);
+        line(sx + length - 3, y - diameter * k, sx + length - 3, y + diameter * k, EDGE);
+        socketThread(sx - 2, y - diameter * k, length + 4, diameter * k * 2, false);
       } else thread(sx, y - diameter / 2, length, diameter, false);
     }
-    if (kind !== "closed") text(x, y - Math.max(ph, diameter * 2) / 2 - 22, inchLabel(kind === "open" ? p.mainSize : setting.size), 26, INK, i === 0 ? "end" : "start");
-    const label = kind === "closed" ? "KAPALI" : i === 0 ? "GİRİŞ" : "ÇIKIŞ";
-    text(x, y + Math.max(ph / 2, kind === "flanged" ? diameter : diameter * 0.65, 20) + 28, label, 19, INK, i === 0 ? "end" : "start");
+    // Bağlantı bilgisi (ölçü + tür) ucun hemen yanında tek satırda: örn. 4 ″ MAŞONLU. Yukarı çıkışların yanına ölçü yazılmaz.
+    const typeLabel = END_LABELS[kind].replace(/\s*\(.*\)\s*$/, "").toLocaleUpperCase("tr-TR");
+    const info = kind === "closed" ? typeLabel : `${inchLabel(kind === "open" ? p.mainSize : setting.size)} ${typeLabel}`;
+    // Bağlantının hemen üstünde, ucun dışına doğru uzanır (çıkışlarla çakışmaz).
+    const topEdge = Math.max(ph / 2 + 3, kind === "flanged" ? diameter : kind === "socket" ? diameter * (setting.size === p.mainSize ? 0.5 : 0.65) : diameter / 2);
+    const room = i === 0 ? x - 4 - 14 : W - 14 - (x + 4);
+    const fsEnd = Math.max(10, Math.min(17, room / (info.length * 0.74)));
+    text(i === 0 ? x - 4 : x + 4, y - topEdge - 12, info, fsEnd, INK, i === 0 ? "end" : "start");
   });
   let bottomEdge = y + ph/2;
   for (const side of ["top","bottom"] as const) {
@@ -182,12 +191,34 @@ function advancedDrawingPages(p: Project): Prim[][] {
   const mainLabelWidth = mainLabel.length * 28 * CHAR_W + 16;
   out.push({t:"rect",x:500-mainLabelWidth/2,y:y-18,w:mainLabelWidth,h:36,fill:PIPE});
   text(500,y+10,mainLabel,28);
+  // Başlangıç ölçüsünün referansı: soldaki bağlantının (erkek diş / maşon / flanş) en dış ucu. Çıkış konumları ve aralıklar değişmez.
+  const outerReach = (kind: ReturnType<typeof mainEndKind>) => kind === "male" ? 25 : kind === "socket" ? 27 : kind === "flanged" ? 5 : kind === "closed" ? 3 : 0;
+  // Sol ve sağ aynı mantık: ölçü, seçilen bağlantının en dış ucundan ilk/son çıkış merkezine alınır.
+  const refX = x0 - outerReach(mainEndKind(p, "left")), refR = x1 + outerReach(mainEndKind(p, "right"));
+  const dimX = (cm: number) => cm === 0 ? refX : cm === total ? refR : x0 + cm * scale;
   const positions=[...new Set([0,...rows.map(r=>r.position),total])].sort((a,b)=>a-b), dimY = bottomEdge + 16, totY = dimY + 24;
-  positions.forEach(cm=>{const x=x0+cm*scale;line(x,dimY-8,x,totY+4,DIM,0.6);});
-  positions.slice(1).forEach((cm,i)=>{const prev=positions[i];if(prev===undefined || cm<=prev)return;const a=x0+prev*scale,z=x0+cm*scale;line(a,dimY,z,dimY,DIM,1.2);if(z-a>16){arrow(a,dimY,1);arrow(z,dimY,-1);text((a+z)/2,dimY-4,fmt(cm-prev),z-a>28?12:9,DIM);}});
-  line(x0,totY,x1,totY,DIM,1.4);arrow(x0,totY,1);arrow(x1,totY,-1);
+  positions.forEach(cm=>{const x=dimX(cm);line(x,dimY-8,x,totY+4,DIM,0.6);});
+  positions.slice(1).forEach((cm,i)=>{const prev=positions[i];if(prev===undefined || cm<=prev)return;const a=dimX(prev),z=dimX(cm);line(a,dimY,z,dimY,DIM,1.2);if(z-a>16){arrow(a,dimY,1);arrow(z,dimY,-1);}if(z-a>16||i===0||i===positions.length-2)text((a+z)/2,dimY-4,fmt(cm-prev),z-a>28?12:9,DIM);});
+  line(refX,totY,refR,totY,DIM,1.4);arrow(refX,totY,1);arrow(refR,totY,-1);
   out.push({t:"rect",x:430,y:totY-13,w:140,h:17,fill:"#ffffff"});
   text(500,totY+1,`TOPLAM ${fmt(total)} cm`,15,DIM);
+  // Çizimin tamamı (yalnızca dikey konum) biraz aşağı alınır: ADET yazısıyla çakışmaz, alt boşluk dengelenir.
+  // Oranlar, ölçüler ve hesaplar değişmez; her öğe aynı miktarda kaydırılır.
+  const extent = (pr: Prim): [number, number] => {
+    if (pr.t === "line") return [Math.min(pr.y1, pr.y2), Math.max(pr.y1, pr.y2)];
+    if (pr.t === "rect" || pr.t === "image") return [pr.y, pr.y + pr.h];
+    if (pr.t === "poly") { const ys = pr.pts.map((q) => q[1]); return [Math.min(...ys), Math.max(...ys)]; }
+    if (pr.t === "texts") { const sz = Math.max(...pr.parts.map((q) => q.s)); return [pr.y - sz * 1.6, pr.y + sz * 1.1]; }
+    return [pr.y - pr.s * 0.8, pr.y + pr.s * 0.25];
+  };
+  const content = out.slice(headerCount).map(extent);
+  const top = Math.min(...content.map((e) => e[0])), bottom = Math.max(...content.map((e) => e[1]));
+  const minTop = 172, maxBottom = 672;
+  const dy = Math.max(0, Math.min(Math.max(minTop - top, Math.min(0.6 * ((minTop + maxBottom) / 2 - (top + bottom) / 2), 90)), maxBottom - bottom));
+  if (dy > 0) for (let k = headerCount; k < out.length; k++) {
+    const pr = out[k]!;
+    out[k] = pr.t === "line" ? { ...pr, y1: pr.y1 + dy, y2: pr.y2 + dy } : pr.t === "poly" ? { ...pr, pts: pr.pts.map(([qx, qy]): [number, number] => [qx, qy + dy]) } : { ...pr, y: pr.y + dy };
+  }
   if (p.notes.trim()) out.push({t:"text",x:30,y:686,s:10,text:`Not: ${p.notes.replace(/\s+/g," ").slice(0,180)}`,bold:true,c:INK});
   return [out];
 }

@@ -1,26 +1,34 @@
-# Zip To App Workshop
+# Navraklılar Torna – Gelişmiş Kollektör Çizim
 
-Bu zip dosyasındaki kodlar ile bana program hazırlarmısın
+Navraklılar Torna için müşteri ve proje bazlı kollektör tasarlama, teknik çizim oluşturma ve PDF/PNG çıktısı alma uygulaması.
 
-This project was built with [Lovable](https://lovable.dev).
+## Teknoloji
 
-**Live app**: https://zip-to-app-workshop.lovable.app
+- React ve TanStack Start (SPA)
+- Supabase Auth ve PostgreSQL
+- GitHub Pages üzerinde statik yayın
 
-## Build with Lovable
+## Geliştirme
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/74bdb752-87ba-4d3b-a6e5-7e8693a7d520).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Bun 1.x ve Node.js 22 veya üzeri gerekir.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev
 ```
+
+Üretim derlemesi:
+
+```sh
+bun run build
+```
+
+## Supabase yapılandırması
+
+Tarayıcıda kullanılmak üzere Supabase proje adresi ve publishable/anon anahtarı `src/integrations/supabase/config.ts` içinde tanımlıdır. Bunlar herkese açık istemci bilgileridir; veritabanı güvenliği RLS politikalarıyla sağlanmalıdır.
+
+İsteğe bağlı olarak `VITE_SUPABASE_URL` ve `VITE_SUPABASE_PUBLISHABLE_KEY` ortam değişkenleriyle derleme sırasında geçersiz kılınabilir. Service-role/secret anahtarı hiçbir zaman tarayıcıya veya GitHub Pages'e konulmamalıdır.
+
+## Yayın
+
+`.github/workflows/pages.yml` GitHub Pages için SPA derlemesini ve dağıtımını yönetir. Depo GitHub Pages için etkinleştirilmeli ve ücretsiz `github.io` barındırması için herkese açık olmalıdır.

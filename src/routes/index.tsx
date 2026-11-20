@@ -1,16 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { matchScore, rankItems } from "@/lib/search";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "@/components/AccountProvider";
 import { AccountDialog } from "@/components/AccountDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject } from "@/lib/cloud-projects";
+import { listCloudProjects, saveCloudProject, saveManufacturingProject, deleteCloudProject, listOtherFirmProjects, deleteFirmProject, saveFirmBatch, type FirmProject } from "@/lib/cloud-projects";
 import { BranchEditor } from "@/components/BranchEditor";
 import { MainEndEditor } from "@/components/MainEndEditor";
 import { AuxiliaryOutletEditor } from "@/components/AuxiliaryOutletEditor";
 import { buildDrawingPages } from "@/lib/drawing";
 import { Drawing } from "@/components/Drawing";
-import logo from "@/assets/navraklilar-logo.png.asset.json";
+import { logoUrl } from "@/assets/logo";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileText, Download, Folder, X } from "lucide-react";
@@ -73,6 +74,14 @@ function Index() {
   const userId = user?.id;
   const projectsQuery = useQuery({ queryKey: ["collectors", userId], queryFn: () => userId ? listCloudProjects(userId) : Promise.resolve([]), enabled: Boolean(userId), retry: 1 });
   const list = userId ? projectsQuery.data ?? [] : [];
+  const adminQuery = useQuery({ queryKey: ["is-admin", userId], enabled: Boolean(userId), retry: 1, queryFn: async () => { const { data, error } = await supabase.rpc("is_admin"); if (error) throw error; return data === true; } });
+  const isAdmin = Boolean(userId) && adminQuery.data === true;
+  const othersQuery = useQuery({ queryKey: ["other-firms", userId], enabled: isAdmin && Boolean(userId), retry: 1, queryFn: () => listOtherFirmProjects(userId!) });
+  const otherGroups = useMemo(() => { const m = new Map<string, FirmProject[]>(); for (const x of othersQuery.data ?? []) m.set(x.ownerEmail, [...(m.get(x.ownerEmail) ?? []), x]); return [...m.entries()]; }, [othersQuery.data]);
+  const removeFirmRecord = async (x: FirmProject) => {
+    if (!window.confirm(`${x.ownerEmail} firmasına ait “${x.project.customerName}” kaydı kalıcı olarak silinsin mi?`)) return;
+    try { await deleteFirmProject(x.ownerId, x.project.id); await queryClient.invalidateQueries({ queryKey: ["other-firms"] }); } catch { flash("Kayıt silinemedi."); }
+  };
   const [legacy, setLegacy] = useState<Project[]>([]);
   const [showAccount, setShowAccount] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,6 +89,7 @@ function Index() {
   const [showList, setShowList] = useState(false);
   const [sessionIds, setSessionIds] = useState<string[]>([]);
   const [activeBatch, setActiveBatch] = useState<{ id: string; ids: string[] } | null>(null);
+  const [editOwner, setEditOwner] = useState<{ id: string; email: string } | null>(null);
   const [drafts, setDrafts] = useState<Record<string, EditorDraft>>({});
   const saveLock = useRef(false);
   const [pdf, setPdf] = useState<{ blob: Blob; url: string; name: string; format: "PDF" | "PNG"; deliver: (b: Blob, n: string) => Promise<void>; download: (b: Blob, n: string) => void } | null>(null);
@@ -90,7 +100,7 @@ function Index() {
   useEffect(() => {
     if (previousUser.current && previousUser.current !== userId) {
       setP(newProject()); setNums({ count: "4", spacing: "20", start: "10", end: "4", quantity: "1" });
-      setSessionIds([]); setActiveBatch(null);
+      setSessionIds([]); setActiveBatch(null); setEditOwner(null);
       setDrafts({});
       setPdf(null); setShowList(false);
     }
@@ -121,6 +131,25 @@ function Index() {
     return item ? [{ ...item, customerName: p.customerName, projectTitle: p.projectTitle, projectId: p.projectId }] : [];
   });
   const customerGroups = useMemo(() => groupCustomerProjects(list), [list]);
+  // Canlı arama (yönetici): yazılanla başlayan firma/müşteri adları önce; Türkçe harf ve büyük/küçük harf farkı gözetilmez.
+  const [listQ, setListQ] = useState("");
+  const dListQ = useDeferredValue(listQ);
+  const [ownOpen, setOwnOpen] = useState<string[]>([]);
+  const [otherOpen, setOtherOpen] = useState<string[]>([]);
+  const shownOwn = useMemo(() => isAdmin ? rankItems(customerGroups, dListQ, (g) => [g.name], (g) => g.projects.map((x) => x.notes)) : customerGroups, [customerGroups, dListQ, isAdmin]);
+  const shownOthers = useMemo(() => {
+    if (!dListQ.trim()) return otherGroups;
+    return otherGroups.map(([email, items]) => {
+      const scored = items.flatMap((x) => { const sc = matchScore(dListQ, [email, x.project.customerName], [x.project.notes, x.project.projectTitle ?? ""]); return sc === null ? [] : [{ x, sc }]; })
+        .sort((a, b) => a.sc - b.sc || a.x.project.customerName.localeCompare(b.x.project.customerName, "tr-TR"));
+      return { email, items: scored.map((e) => e.x), score: scored[0]?.sc ?? 9 };
+    }).filter((g) => g.items.length > 0).sort((a, b) => a.score - b.score || a.email.localeCompare(b.email, "tr-TR")).map((g): [string, FirmProject[]] => [g.email, g.items]);
+  }, [otherGroups, dListQ]);
+  useEffect(() => { if (showList) setListQ(""); }, [showList]);
+  useEffect(() => {
+    const few = dListQ.trim() !== "" && shownOwn.length + shownOthers.length <= 5;
+    setOwnOpen(few ? shownOwn.map((g) => g.key) : []); setOtherOpen(few ? shownOthers.map(([email]) => email) : []);
+  }, [dListQ, showList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 5000); };
   const openProject = (x: Project, draft?: EditorDraft) => { const item = normalizeProject(draft?.project ?? x); setP(item); setNums(draft?.nums ?? { count: String(item.count), spacing: String(item.spacing), start: String(item.start), end: String(item.end), quantity: String(item.quantity) }); setPdf(null); setShowList(false); };
@@ -133,10 +162,36 @@ function Index() {
   };
   const openBatch = (items: Project[], selected = items[0]) => {
     if (!selected || saveLock.current) return;
+    setEditOwner(null);
     setActiveBatch({ id: items[0]?.projectId ?? items[0]?.batchId ?? crypto.randomUUID(), ids: items.map((x) => x.id) });
     setDrafts({}); setSessionIds(items.map((x) => x.id)); openProject(selected);
   };
-  const startNew = () => { if (saveLock.current) return; setActiveBatch(null); setDrafts({}); setSessionIds([]); setPdf(null); openProject(newProject()); };
+  const numsOf = (item: Project) => ({ count: String(item.count), spacing: String(item.spacing), start: String(item.start), end: String(item.end), quantity: String(item.quantity) });
+  // Başka firmanın kaydı yönetici tarafından AÇILIR ve kaydedilince aynı firmanın mevcut kaydına yazılır (yeni kayıt açılmaz).
+  const openFirmRecord = (items: FirmProject[], selected: FirmProject) => {
+    if (saveLock.current || !isAdmin) return;
+    const group = items.map((x) => x.project);
+    const chosen = group.find((x) => x.id === selected.project.id) ?? group[0];
+    if (!chosen) return;
+    setEditOwner({ id: selected.ownerId, email: selected.ownerEmail });
+    setActiveBatch({ id: group[0]?.projectId ?? group[0]?.batchId ?? crypto.randomUUID(), ids: group.map((x) => x.id) });
+    setDrafts(Object.fromEntries(group.filter((x) => x !== chosen).map((x) => [x.id, { project: x, nums: numsOf(x) }])));
+    setSessionIds(group.map((x) => x.id));
+    openProject(chosen);
+  };
+  // Yönetici panelinden "Aç" ile gelen kayıt (sessionStorage), liste yüklenince açılır.
+  useEffect(() => {
+    if (!isAdmin || !othersQuery.isSuccess) return;
+    let wanted: { ownerId: string; id: string } | null = null;
+    try { const raw = sessionStorage.getItem("admin-open"); if (raw) { wanted = JSON.parse(raw); sessionStorage.removeItem("admin-open"); } } catch { /* yok say */ }
+    if (!wanted) return;
+    const hit = othersQuery.data.find((x) => x.ownerId === wanted!.ownerId && x.project.id === wanted!.id);
+    if (!hit) return;
+    const mine = othersQuery.data.filter((x) => x.ownerId === hit.ownerId);
+    openFirmRecord(hit.project.batchId ? mine.filter((i) => i.project.batchId === hit.project.batchId).sort((a, b) => (a.project.batchPosition ?? 0) - (b.project.batchPosition ?? 0)) : [hit], hit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, othersQuery.isSuccess, othersQuery.data]);
+  const startNew = () => { if (saveLock.current) return; setEditOwner(null); setActiveBatch(null); setDrafts({}); setSessionIds([]); setPdf(null); openProject(newProject()); };
   const save = async (): Promise<boolean> => {
     if (!ok) { flash("Önce hataları düzeltin"); return false; }
     if (!userId) { setShowAccount(true); return false; }
@@ -153,15 +208,20 @@ function Index() {
     try {
       const keep = new Set(snapshot.map((x) => x.id));
       const removed = activeBatch ? activeBatch.ids.filter((id) => !keep.has(id)) : [];
-      const saved = await saveManufacturingProject(snapshot, userId);
+      const firmEdit = isAdmin ? editOwner : null;
+      const saved = firmEdit ? await saveFirmBatch(snapshot, firmEdit.id, removed) : await saveManufacturingProject(snapshot, userId);
       const savedIds = new Set(saved.map((x) => x.id));
-      queryClient.setQueryData<Project[]>(["collectors", userId], (old = []) => [...old.filter((x) => !savedIds.has(x.id) && !removed.includes(x.id)), ...saved]);
-      void queryClient.invalidateQueries({ queryKey: ["collectors", userId] });
+      if (firmEdit) void queryClient.invalidateQueries({ queryKey: ["other-firms"] });
+      else {
+        queryClient.setQueryData<Project[]>(["collectors", userId], (old = []) => [...old.filter((x) => !savedIds.has(x.id) && !removed.includes(x.id)), ...saved]);
+        void queryClient.invalidateQueries({ queryKey: ["collectors", userId] });
+      }
       // Further saves of this editor session overwrite the same group instead of duplicating it.
       const savedBatchId = saved[0]?.projectId ?? saved[0]?.batchId;
       if (savedBatchId) setActiveBatch({ id: savedBatchId, ids: saved.map((x) => x.id) });
-      setDrafts({}); setSessionIds(saved.map((x) => x.id));
       const current = saved[position] ?? saved[0];
+      // Firma kaydında diğer kollektörler kendi listemde olmadığından taslak olarak tutulur.
+      setDrafts(firmEdit ? Object.fromEntries(saved.filter((x) => x.id !== current?.id).map((x) => [x.id, { project: x, nums: numsOf(x) }])) : {}); setSessionIds(saved.map((x) => x.id));
       if (current) { setP(current); }
       flash(activeBatch ? "Kayıt güncellendi" : "Buluta kaydedildi"); return true;
     } catch (error) { flash(error instanceof Error ? error.message : "Kayıt tamamlanamadı"); return false; }
@@ -170,8 +230,9 @@ function Index() {
   const remove = async (id: string) => {
     if (!userId || !window.confirm("Bu kollektör buluttan silinsin mi?")) return;
     try {
-      await deleteCloudProject(id, userId);
-      queryClient.setQueryData<Project[]>(["collectors", userId], (old = []) => old.filter((x) => x.id !== id));
+      if (isAdmin && editOwner) { await deleteFirmProject(editOwner.id, id); void queryClient.invalidateQueries({ queryKey: ["other-firms"] }); }
+      else { await deleteCloudProject(id, userId);
+        queryClient.setQueryData<Project[]>(["collectors", userId], (old = []) => old.filter((x) => x.id !== id)); }
       // A deleted record must also leave the open editor group, or the next Save would recreate it.
       const remaining = batch.filter((item) => item.id !== id);
       setDrafts((old) => { const next = { ...old, ...Object.fromEntries(remaining.map((item) => [item.id, { project: item, nums: item.id === p.id ? { ...nums } : old[item.id]?.nums ?? { count: String(item.count), spacing: String(item.spacing), start: String(item.start), end: String(item.end), quantity: String(item.quantity) } }])) }; delete next[id]; return next; });
@@ -235,17 +296,19 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-primary px-5 py-4 text-primary-foreground">
-        <div>
-          <img src={logo.url} alt="Navraklılar Torna" className="mb-2 h-auto w-60 max-w-full object-contain" />
-          <h1 className="max-w-xl text-xl font-bold sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
+      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 bg-primary px-4 py-2 sm:gap-3 sm:px-5 sm:py-4 text-primary-foreground">
+        <div className="flex items-center gap-3 sm:block">
+          <img src={logoUrl} alt="Navraklılar Torna" className="h-auto w-40 max-w-[50%] shrink-0 object-contain sm:mb-2 sm:w-60 sm:max-w-full" />
+          <h1 className="max-w-xl text-sm font-bold leading-tight sm:text-2xl">Gelişmiş Kollektör İmalat ve Çizim</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">Projeler</Button>
-          <Button variant="ghost" disabled={saving} onClick={startNew} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold">+ Yeni</Button>
-          <Button variant="ghost" disabled={!ready || saving} onClick={() => user ? signOut() : setShowAccount(true)} className="h-auto border border-primary-foreground/30 px-3 py-2.5 font-semibold"><span key={user ? "out" : "in"}>{user ? "Çıkış yap" : "Giriş yap"}</span></Button>
+          <Button variant="ghost" onClick={() => { setShowList(true); if (userId) void projectsQuery.refetch(); }} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base">Projeler</Button>
+          {isAdmin && <Button asChild variant="ghost" className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base"><Link to="/admin">Yönetici</Link></Button>}
+          <Button variant="ghost" disabled={saving} onClick={startNew} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base">+ Yeni</Button>
+          <Button variant="ghost" disabled={!ready || saving} onClick={() => user ? signOut() : setShowAccount(true)} className="h-auto border border-primary-foreground/30 px-2.5 py-1.5 text-sm font-semibold sm:px-3 sm:py-2.5 sm:text-base"><span key={user ? "out" : "in"}>{user ? "Çıkış yap" : "Giriş yap"}</span></Button>
         </div>
       </header>
+      {editOwner && <p role="status" className="bg-accent/30 px-4 py-1 text-sm font-semibold">Düzenlenen firma hesabı: {editOwner.email}</p>}
 
       <main className="mx-auto max-w-3xl space-y-5 p-4">
         {user && <p className="break-all text-sm text-muted-foreground">Bulut hesabı: {user.email}</p>}
@@ -333,9 +396,9 @@ function Index() {
             <Button asChild className="h-auto w-full rounded-xl bg-accent py-4 text-lg font-bold text-accent-foreground">
               <a href={pdf.url} target="_blank" rel="noopener noreferrer"><FileText />{pdf.format === "PDF" ? "PDF’yi Aç" : "Resmi Aç"}</a>
             </Button>
-            <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF olarak indir" : "PNG resim olarak indir"}</Button>
+            <Button variant="outline" onClick={() => (pdf.format === "PDF" ? Promise.resolve(pdf.download(pdf.blob, pdf.name)) : pdf.deliver(pdf.blob, pdf.name)).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold"><Download />{pdf.format === "PDF" ? "PDF’yi Dosyalar’a indir" : "PNG resim olarak indir"}</Button>
             <Button variant="outline" onClick={() => pdf.deliver(pdf.blob, pdf.name).catch(() => flash("Paylaşım tamamlanamadı; dosyayı açıp kaydedebilirsiniz."))} className="h-auto w-full rounded-xl py-3 font-semibold">Paylaş / Kaydet</Button>
-             <Button variant="outline" onClick={() => setPdf(null)} className="h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
+            <Button variant="outline" onClick={() => setPdf(null)} className="h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>
       )}
@@ -348,8 +411,10 @@ function Index() {
             {userId && projectsQuery.isPending && <p role="status">Kayıtlar yükleniyor…</p>}
             {userId && projectsQuery.isError && <div role="alert"><p>Bulut kayıtları yüklenemedi.</p><Button variant="outline" onClick={() => projectsQuery.refetch()}>Tekrar dene</Button></div>}
             {userId && projectsQuery.isSuccess && list.length === 0 && <p className="text-muted-foreground">Henüz kayıtlı kollektör yok.</p>}
-            <Accordion type="multiple" className="w-full">
-              {customerGroups.map((group) => <AccordionItem key={group.key} value={group.key}>
+            {isAdmin && <input type="search" autoComplete="off" aria-label="Firma veya müşteri ara" placeholder="Firma / müşteri ara…" value={listQ} onChange={(e) => setListQ(e.target.value)} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground" />}
+            {isAdmin && dListQ.trim() && shownOwn.length + shownOthers.length === 0 && <p className="text-sm text-muted-foreground">Eşleşen firma bulunamadı.</p>}
+            <Accordion type="multiple" value={ownOpen} onValueChange={setOwnOpen} className="w-full">
+              {shownOwn.map((group) => <AccordionItem key={group.key} value={group.key}>
                 <AccordionTrigger className="gap-3 text-base">
                   <span className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-accent" /><span className="break-words">{group.name}</span></span>
                   <span className="ml-auto shrink-0 text-sm text-muted-foreground">{group.projects.length} kollektör</span>
@@ -370,6 +435,23 @@ function Index() {
                 </AccordionContent>
               </AccordionItem>)}
             </Accordion>
+            {isAdmin && <div className="space-y-2 border-t border-border pt-3">
+              <h3 className="font-bold">Diğer firmaların kayıtları</h3>
+              {othersQuery.isPending && <p role="status">Yükleniyor…</p>}
+              {othersQuery.isError && <p role="alert">Diğer firmaların kayıtları yüklenemedi.</p>}
+              {othersQuery.isSuccess && otherGroups.length === 0 && !dListQ.trim() && <p className="text-sm text-muted-foreground">Başka firmaya ait kayıt yok.</p>}
+              <Accordion type="multiple" value={otherOpen} onValueChange={setOtherOpen} className="w-full">
+                {shownOthers.map(([email, items]) => <AccordionItem key={email} value={email}>
+                  <AccordionTrigger className="gap-3 text-base"><span className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-accent" /><span className="break-all text-left">{email}</span></span><span className="ml-auto shrink-0 text-sm text-muted-foreground">{items.length} kollektör</span></AccordionTrigger>
+                  <AccordionContent className="space-y-1">
+                    {items.map((x) => <div key={x.project.id} className="flex items-center gap-2">
+                      <Button disabled={saving} variant="ghost" className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left" title="Aç ve düzenle" onClick={() => openFirmRecord(x.project.batchId ? items.filter((i) => i.project.batchId === x.project.batchId).sort((a, b) => (a.project.batchPosition ?? 0) - (b.project.batchPosition ?? 0)) : [x], x)}><span className="break-words font-semibold">{x.project.customerName}</span><span className="text-xs text-muted-foreground">Ø{x.project.mainSize}″ • {x.project.count} çıkış • {x.project.quantity} adet • {LAYOUT_LABELS[x.project.layout]} • {x.project.date}</span></Button>
+                      <Button disabled={saving} variant="ghost" size="icon" onClick={() => void removeFirmRecord(x)} aria-label="Firma kaydını sil" title="Kaydı sil" className="shrink-0 text-destructive"><X /></Button>
+                    </div>)}
+                  </AccordionContent>
+                </AccordionItem>)}
+              </Accordion>
+            </div>}
             <Button variant="outline" onClick={() => setShowList(false)} className="mt-2 h-auto w-full rounded-xl py-3 font-semibold">Kapat</Button>
           </div>
         </div>

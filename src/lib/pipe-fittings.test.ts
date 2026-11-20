@@ -12,7 +12,9 @@ describe("pipe fitting updates", () => {
     const p = { ...base, branches };
     const sheet = buildDrawingPages(p)[0] ?? [];
     const mainHeight = pipeDiameterMm("2") * 70 / pipeDiameterMm("2");
-    const surface = 350 + (side === "top" ? -1 : 1) * mainHeight / 2;
+    const mainPipe = sheet.find(pr => pr.t === "rect" && pr.stroke && pr.sw === 1.8 && pr.w > 700);
+    if (!mainPipe || mainPipe.t !== "rect") throw new Error("Missing main pipe");
+    const surface = mainPipe.y + mainPipe.h / 2 + (side === "top" ? -1 : 1) * mainHeight / 2;
     const x = 140 + 10 * 720 / 34;
     const bodies = sheet.filter(pr => pr.t === "rect" && pr.stroke && pr.sw === 1.8 && Math.abs(pr.x + pr.w / 2 - x) < 0.01 && (side === "top" ? pr.y < surface : pr.y >= surface));
     expect(bodies).toHaveLength(1);

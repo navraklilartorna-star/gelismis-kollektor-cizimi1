@@ -2,12 +2,13 @@ import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { buildDrawingPages, partWidth, textsWidth, W, H } from "./drawing";
 import type { Project } from "./collector";
+import { logoUrl, pdfLogoUrl } from "@/assets/logo";
 
 let fontCache: Promise<[ArrayBuffer, ArrayBuffer]> | null = null;
 export function preloadFonts() {
   fontCache ??= Promise.all([
-    fetch("/fonts/DejaVuSans.ttf").then((r) => r.arrayBuffer()),
-    fetch("/fonts/DejaVuSans-Bold.ttf").then((r) => r.arrayBuffer()),
+    fetch(`${import.meta.env.BASE_URL}fonts/DejaVuSans.ttf`).then((r) => r.arrayBuffer()),
+    fetch(`${import.meta.env.BASE_URL}fonts/DejaVuSans-Bold.ttf`).then((r) => r.arrayBuffer()),
   ]);
   return fontCache;
 }
@@ -25,7 +26,7 @@ export async function makePdf(input: Project | Project[]): Promise<Blob> {
   const images = new Map<string, Awaited<ReturnType<typeof doc.embedPng>>>();
   for (const project of projects) for (const pr of buildDrawingPages(project).flat()) {
     if (pr.t === "image" && !images.has(pr.src)) {
-      const response = await fetch(pr.src);
+      const response = await fetch(pr.src === logoUrl ? pdfLogoUrl : pr.src);
       if (!response.ok) throw new Error("Logo yüklenemedi");
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes[0] === 137 && bytes[1] === 80) images.set(pr.src, await doc.embedPng(bytes));
@@ -106,11 +107,20 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
+/** Yalnızca ASCII dosya adı: iOS'ta WhatsApp, Türkçe karakter/boşluk içeren adlarla paylaşımı reddediyor. */
+export function shareSafeName(filename: string) {
+  const ext = /\.(pdf|png)$/i.exec(filename)?.[0].toLowerCase() ?? "";
+  const map: Record<string, string> = { ç: "c", Ç: "C", ğ: "g", Ğ: "G", ı: "i", İ: "I", ö: "o", Ö: "O", ş: "s", Ş: "S", ü: "u", Ü: "U" };
+  const base = filename.replace(/\.(pdf|png)$/i, "").replace(/[çÇğĞıİöÖşŞüÜ]/g, (c) => map[c] ?? c).normalize("NFKD").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return `${base || "kollektor"}${ext}`;
+}
+
 export async function deliverFile(blob: Blob, filename: string) {
-  const file = new File([blob], filename, { type: blob.type });
+  const file = new File([blob], shareSafeName(filename), { type: blob.type });
   const touch = matchMedia("(pointer: coarse)").matches;
   if (touch && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: filename }); return; }
+    // Yalnızca dosya paylaşılır (title/text eklenmez): WhatsApp ve bazı iOS uygulamaları dosyayla birlikte metin gelince gönderemiyor.
+    try { await navigator.share({ files: [file] }); return; }
     catch (e) { if ((e as DOMException).name === "AbortError") return; }
   }
   downloadBlob(blob, filename);

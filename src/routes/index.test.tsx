@@ -7,11 +7,11 @@ import { saveManufacturingProject, saveCloudProject, deleteCloudProject } from "
 
 const records = vi.hoisted(() => ({ projects: [] as Project[] }));
 
-vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => (options: unknown) => ({ options }) }));
+vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => (options: unknown) => ({ options }), Link: () => null }));
 vi.mock("@/components/AccountProvider", () => ({ useAccount: () => ({ user: { id: "owner-a", email: "" }, ready: true }) }));
 vi.mock("@/components/AccountDialog", () => ({ AccountDialog: () => null }));
 vi.mock("@/components/Drawing", () => ({ Drawing: () => null }));
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { signOut: vi.fn() }, rpc: vi.fn(async () => ({ data: false, error: null })) } }));
 vi.mock("@/lib/cloud-projects", () => ({
   listCloudProjects: vi.fn(async () => records.projects),
   saveCloudProject: vi.fn(async (p: Project) => {
